@@ -1,4 +1,4 @@
-const CACHE = 'pixel-adventure-v26';
+const CACHE = 'pixel-adventure-v27';
 const FILES = ['./', './index.html', './manifest.json', './customization.js'];
 
 self.addEventListener('install', event => {
@@ -29,6 +29,36 @@ self.addEventListener('fetch', event => {
     }
     html = html.replace(/function drawChar\(\)\{[\s\S]*?\}\s*function updateShop\(/, 'function drawChar(){if(window.renderPixelShopAvatar)window.renderPixelShopAvatar()}\nfunction updateShop(');
     html = html.replace(/ctx\.fillRect\(p\.x\+\(p\.vx<0\?5:15\),p\.y\+5,3,3\)/, match => `${match};if(window.drawEquippedPixelDetails)window.drawEquippedPixelDetails(ctx,p.x,p.y,save)`);
+
+    html = html.replace('</body>', `<script>
+(() => {
+  const home = document.querySelector('#title .center');
+  if (home) {
+    let shopButton = [...home.querySelectorAll('button')].find(button => /go\\(['"]shop['"]\\)/.test(button.getAttribute('onclick') || ''));
+    if (!shopButton) {
+      shopButton = document.createElement('button');
+      shopButton.type = 'button';
+      shopButton.className = 'btn';
+      shopButton.addEventListener('click', () => window.go('shop'));
+      home.appendChild(shopButton);
+    }
+    shopButton.textContent = '🛍️ 商店';
+    shopButton.setAttribute('aria-label', '打开商店');
+  }
+
+  const map = document.querySelector('#map .center');
+  if (map && !map.querySelector('[data-return-home]')) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'btn';
+    button.dataset.returnHome = 'true';
+    button.textContent = '返回主页';
+    button.setAttribute('aria-label', '返回主页');
+    button.addEventListener('click', () => window.go('title'));
+    map.appendChild(button);
+  }
+})();
+</script></body>`);
 
     return new Response(html, {
       status: response.status,
