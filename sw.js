@@ -1,5 +1,5 @@
-const CACHE = 'pixel-adventure-v28';
-const FILES = ['./', './index.html', './manifest.json', './customization.js'];
+const CACHE = 'pixel-adventure-v29';
+const FILES = ['./', './index.html', './manifest.json', './customization.js', './inventory.js'];
 
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(FILES)));
@@ -27,6 +27,9 @@ self.addEventListener('fetch', event => {
     let html = await response.text();
     if (!html.includes('customization.js')) {
       html = html.replace('</body>', '<script src="./customization.js" defer></script></body>');
+    }
+    if (!html.includes('inventory.js')) {
+      html = html.replace('</body>', '<script src="./inventory.js" defer></script></body>');
     }
     html = html.replace(/function drawChar\(\)\{[\s\S]*?\}\s*function updateShop\(/, 'function drawChar(){if(window.renderPixelShopAvatar)window.renderPixelShopAvatar()}\nfunction updateShop(');
     html = html.replace(/ctx\.fillRect\(p\.x\+\(p\.vx<0\?5:15\),p\.y\+5,3,3\)/, match => `${match};if(window.drawEquippedPixelDetails)window.drawEquippedPixelDetails(ctx,p.x,p.y,save)`);
