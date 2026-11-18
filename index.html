@@ -23,6 +23,7 @@
   .grid { display: grid; grid-template-columns: repeat(4, minmax(58px, 72px)); gap: 9px; margin: 14px 0; }
   .cell { min-height: 64px; border: 2px solid #52677e; border-radius: 10px; background: #1d2c3d; font-size: 30px; cursor: pointer; }
   .cell:hover { background: #30475f; }
+  .cell:disabled { opacity: .45; cursor: not-allowed; }
   .note { max-width: 440px; color: #bdc9d5; font-size: 14px; line-height: 1.5; }
   #shop .center { overflow: auto; }
   #char { width: 140px; height: 190px; background: #111; border: 2px solid #52677e; border-radius: 8px; image-rendering: pixelated; }
@@ -30,6 +31,7 @@
   #saveStatus { min-height: 21px; color: #bdc9d5; font-size: 13px; }
   #play { background: #101522; }
   .top { min-height: 46px; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 7px 12px; background: #172131; font-size: 14px; }
+  .top .btn { min-width: auto; margin: 0; padding: 6px 10px; font-size: 13px; }
   #game { display: block; width: 100%; height: auto; max-height: 62vh; background: #83d6f4; image-rendering: pixelated; }
   #message { min-height: 26px; padding: 4px 10px; color: #ffe083; text-align: center; font-size: 14px; }
   .pad { flex: 1; min-height: 100px; display: flex; justify-content: space-between; align-items: flex-end; padding: 8px max(16px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left)); }
@@ -62,7 +64,7 @@
   <div class="center">
     <h2>选择区域</h2>
     <div class="grid" id="mapGrid"></div>
-    <p class="note">🌿青草平原是横版闯关；👹怪物洞穴可以进行回合制战斗；💎宝箱可领取金币。</p>
+    <p class="note">碰到每关终点旗帜即可通关并自动进入下一关。通关进度会保存在此设备。</p>
     <button class="btn" onclick="saveProgress(true)">保存进度</button>
     <button class="btn" onclick="go('title')">返回标题</button>
   </div>
@@ -94,11 +96,12 @@
 <div id="play" class="screen">
   <div class="top">
     <div id="hearts" aria-label="生命值">❤️❤️❤️</div>
-    <strong>青草平原</strong>
+    <strong id="levelTitle">青草平原</strong>
     <div>🪙 <span id="coinUI">0</span>　<span id="goldUI">金币 4</span></div>
+    <button class="btn" onclick="go('title')" aria-label="回到主页">回主页</button>
   </div>
   <canvas id="game" width="960" height="360" aria-label="横版冒险游戏画面"></canvas>
-  <div id="message">收集金币并到达右侧终点！</div>
+  <div id="message">收集金币并碰到终点旗帜通关！</div>
   <div class="pad">
     <div class="left">
       <button class="key" id="kL" aria-label="向左">◀</button>
@@ -111,13 +114,36 @@
 <script>
 'use strict';
 const SAVE_KEY = 'pixel-adventure-save-v1';
-const LEVEL_ID = 'meadow-1';
-const defaults = { gold: 4, equip: { cloth: 0, hair: 0, weapon: 0 }, clearedLevels: [] };
+const LEVELS = [
+  {
+    name: '青草平原', width: 1800,
+    platforms: [[0, 320, 1800, 40], [270, 260, 130, 16], [520, 220, 150, 16], [790, 270, 150, 16], [1080, 225, 150, 16], [1370, 260, 150, 16]],
+    enemies: [[360, 310, 310, 470, 1.3], [900, 850, 1010, -1.5], [1450, 1400, 1570, 1.6]],
+    coins: [[180,278],[315,222],[455,278],[565,182],[710,278],[830,232],[1010,278],[1120,187],[1290,278],[1415,222],[1580,278],[1710,278]]
+  },
+  {
+    name: '蘑菇森林', width: 1950,
+    platforms: [[0,320,1950,40],[220,270,140,16],[465,220,150,16],[730,260,145,16],[990,205,160,16],[1270,255,150,16],[1540,215,145,16]],
+    enemies: [[340,290,245,430,1.7],[820,770,930,-1.8],[1370,1310,1480,2],[1690,1640,1800,-1.7]],
+    coins: [[160,278],[280,232],[500,182],[655,278],[800,222],[930,278],[1050,167],[1210,278],[1360,217],[1510,278],[1660,177],[1850,278]]
+  },
+  {
+    name: '火山山谷', width: 2100,
+    platforms: [[0,320,2100,40],[250,255,130,16],[490,205,145,16],[760,255,150,16],[1030,195,150,16],[1300,250,150,16],[1570,205,155,16],[1830,260,130,16]],
+    enemies: [[370,330,280,450,1.8],[890,830,960,-2],[1430,1370,1510,2.1],[1770,1710,1880,-2]],
+    coins: [[170,278],[300,217],[540,167],[680,278],[820,217],[970,278],[1080,157],[1230,278],[1370,212],[1530,278],[1660,167],[1810,222],[1980,278]]
+  }
+];
+const defaults = { gold: 4, equip: { cloth: 0, hair: 0, weapon: 0 }, currentLevel: 1, clearedLevels: [] };
 let save = loadSave();
 let enemyHp = 30;
 let p = null;
 let enemies = [];
 let coins = [];
+let platforms = [];
+let worldWidth = LEVELS[0].width;
+let flagTrigger = null;
+let levelNumber = 1;
 let keys = { l: false, r: false };
 let cameraX = 0;
 let lastFrame = 0;
@@ -125,24 +151,16 @@ let gameActive = false;
 let invulnerable = 0;
 let runCoins = 0;
 let levelFinished = false;
-const WORLD_WIDTH = 1800;
 const GROUND_Y = 320;
-const FLAG_TRIGGER = { x: WORLD_WIDTH - 100, y: 210, w: 60, h: 110 };
 const cv = document.getElementById('game');
 const ctx = cv.getContext('2d');
-const platforms = [
-  { x: 0, y: GROUND_Y, w: WORLD_WIDTH, h: 40 },
-  { x: 270, y: 260, w: 130, h: 16 },
-  { x: 520, y: 220, w: 150, h: 16 },
-  { x: 790, y: 270, w: 150, h: 16 },
-  { x: 1080, y: 225, w: 150, h: 16 },
-  { x: 1370, y: 260, w: 150, h: 16 }
-];
 
 function loadSave() {
   try {
     const stored = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null');
     if (!stored || typeof stored !== 'object') return { ...defaults, equip: { ...defaults.equip }, clearedLevels: [] };
+    const cleared = Array.isArray(stored.clearedLevels) ? stored.clearedLevels.map(id => id === 'meadow-1' ? 1 : id).filter(id => Number.isInteger(id) && id >= 1 && id <= LEVELS.length) : [];
+    const savedLevel = Number.isInteger(stored.currentLevel) ? stored.currentLevel : (cleared.includes(1) ? 2 : 1);
     return {
       gold: Number.isFinite(stored.gold) ? Math.max(0, stored.gold) : defaults.gold,
       equip: {
@@ -150,7 +168,8 @@ function loadSave() {
         hair: Number.isInteger(stored.equip?.hair) ? ((stored.equip.hair % 3) + 3) % 3 : 0,
         weapon: Number.isInteger(stored.equip?.weapon) ? ((stored.equip.weapon % 3) + 3) % 3 : 0
       },
-      clearedLevels: Array.isArray(stored.clearedLevels) ? stored.clearedLevels.filter(id => typeof id === 'string') : []
+      currentLevel: Math.max(1, Math.min(LEVELS.length, savedLevel)),
+      clearedLevels: [...new Set(cleared)]
     };
   } catch (_) { return { ...defaults, equip: { ...defaults.equip }, clearedLevels: [] }; }
 }
@@ -166,21 +185,32 @@ function saveProgress(showStatus = false) {
   return saved;
 }
 function go(id) {
+  if (id !== 'play') gameActive = false;
   document.querySelectorAll('.screen').forEach(screen => screen.classList.remove('active'));
   document.getElementById(id).classList.add('active');
   keys.l = keys.r = false;
   document.querySelectorAll('.key').forEach(key => key.classList.remove('pressed'));
   if (id === 'map') renderMap();
   if (id === 'shop') { drawChar(); updateShop(); }
-  if (id === 'play') startLevel();
+  if (id === 'play') startLevel(save.currentLevel);
   if (id === 'battle') updateBattle();
 }
 function renderMap() {
   const grid = document.getElementById('mapGrid');
   grid.replaceChildren();
-  const cleared = save.clearedLevels.includes(LEVEL_ID);
+  LEVELS.forEach((level, index) => {
+    const number = index + 1;
+    const unlocked = number <= save.currentLevel || save.clearedLevels.includes(number);
+    const button = document.createElement('button');
+    button.className = 'cell';
+    button.textContent = save.clearedLevels.includes(number) ? '✅' : (unlocked ? '🌿' : '🔒');
+    button.title = `第${number}关：${level.name}`;
+    button.setAttribute('aria-label', button.title);
+    button.disabled = !unlocked;
+    button.onclick = () => { save.currentLevel = number; saveProgress(); go('play'); };
+    grid.appendChild(button);
+  });
   const places = [
-    { icon: cleared ? '✅' : '🌿', label: cleared ? '青草平原（已通关）' : '青草平原', action: () => go('play') },
     { icon: '👹', label: '怪物洞穴', action: () => { enemyHp = 30; go('battle'); } },
     { icon: '💎', label: '宝箱', action: () => { save.gold += 5; saveProgress(); renderMap(); } },
     { icon: '🏠', label: '换装商店', action: () => go('shop') }
@@ -200,7 +230,7 @@ function atk() {
   enemyHp = Math.max(0, enemyHp - damage);
   if (enemyHp === 0) {
     save.gold += 20; saveProgress();
-    document.getElementById('battleText').textContent = `怪物被击败了！获得 20 金币。`;
+    document.getElementById('battleText').textContent = '怪物被击败了！获得 20 金币。';
     updateBattle();
     setTimeout(() => { if (document.getElementById('battle').classList.contains('active')) go('map'); }, 900);
   } else {
@@ -233,22 +263,23 @@ function updateGoldUI() {
   const gold = document.getElementById('goldUI');
   if (gold) gold.textContent = `金币 ${save.gold}`;
 }
-function startLevel() {
+function startLevel(number = save.currentLevel) {
+  levelNumber = Math.max(1, Math.min(LEVELS.length, number));
+  save.currentLevel = levelNumber;
+  const level = LEVELS[levelNumber - 1];
+  worldWidth = level.width;
+  platforms = level.platforms.map(([x, y, w, h]) => ({ x, y, w, h }));
+  flagTrigger = { x: worldWidth - 100, y: 210, w: 60, h: 110 };
   p = { x: 48, y: GROUND_Y - 36, w: 24, h: 36, vx: 0, vy: 0, hp: 3, onGround: true };
-  enemies = [
-    { x: 360, y: GROUND_Y - 24, w: 30, h: 24, min: 310, max: 470, vx: 1.3, alive: true },
-    { x: 900, y: GROUND_Y - 24, w: 30, h: 24, min: 850, max: 1010, vx: -1.5, alive: true },
-    { x: 1450, y: GROUND_Y - 24, w: 30, h: 24, min: 1400, max: 1570, vx: 1.6, alive: true }
-  ];
-  coins = [
-    [180, 278], [315, 222], [455, 278], [565, 182], [710, 278], [830, 232],
-    [1010, 278], [1120, 187], [1290, 278], [1415, 222], [1580, 278], [1710, 278]
-  ].map(([x, y]) => ({ x, y, got: false }));
+  enemies = level.enemies.map(([x, min, max, vx]) => ({ x, y: GROUND_Y - 24, w: 30, h: 24, min, max, vx, alive: true }));
+  coins = level.coins.map(([x, y]) => ({ x, y, got: false }));
   cameraX = 0; runCoins = 0; invulnerable = 0; levelFinished = false;
   const message = document.getElementById('message');
   message.onclick = null;
-  message.textContent = '收集金币并碰到终点旗帜通关！';
+  message.textContent = `第 ${levelNumber} 关：收集金币并碰到旗帜通关！`;
+  document.getElementById('levelTitle').textContent = `第 ${levelNumber} 关：${level.name}`;
   updateHUD();
+  saveProgress();
   gameActive = true;
   lastFrame = 0;
   requestAnimationFrame(gameLoop);
@@ -280,14 +311,26 @@ function damagePlayer(enemy) {
 }
 function finishLevel() {
   if (levelFinished) return;
-  levelFinished = true; gameActive = false;
+  levelFinished = true;
+  gameActive = false;
+  const finishedLevel = levelNumber;
   const reward = runCoins + 5;
   save.gold += reward;
-  if (!save.clearedLevels.includes(LEVEL_ID)) save.clearedLevels.push(LEVEL_ID);
-  saveProgress(); updateHUD();
-  document.getElementById('message').textContent = `通关！收集 ${runCoins} 枚金币，额外奖励 5 金币。获得 ${reward} 金币！`;
-  document.getElementById('message').onclick = () => go('map');
-  setTimeout(() => { if (document.getElementById('play').classList.contains('active')) go('map'); }, 1800);
+  if (!save.clearedLevels.includes(finishedLevel)) save.clearedLevels.push(finishedLevel);
+  const hasNextLevel = finishedLevel < LEVELS.length;
+  if (hasNextLevel) save.currentLevel = finishedLevel + 1;
+  saveProgress();
+  updateHUD();
+  const message = document.getElementById('message');
+  message.textContent = hasNextLevel
+    ? `第 ${finishedLevel} 关通关！获得 ${reward} 金币，即将进入第 ${finishedLevel + 1} 关……`
+    : `恭喜通关全部关卡！获得 ${reward} 金币。点击这里返回地图。`;
+  if (!hasNextLevel) message.onclick = () => go('map');
+  setTimeout(() => {
+    if (!document.getElementById('play').classList.contains('active')) return;
+    if (hasNextLevel) startLevel(finishedLevel + 1);
+    else go('map');
+  }, 1500);
 }
 function gameLoop(timestamp) {
   if (!gameActive) return;
@@ -300,7 +343,7 @@ function gameLoop(timestamp) {
   if (keys.l && !keys.r) p.vx = -speed;
   else if (keys.r && !keys.l) p.vx = speed;
   else p.vx *= Math.pow(0.78, dt);
-  p.x = Math.max(0, Math.min(WORLD_WIDTH - p.w, p.x + p.vx * dt));
+  p.x = Math.max(0, Math.min(worldWidth - p.w, p.x + p.vx * dt));
 
   const previousBottom = p.y + p.h;
   p.vy = Math.min(12, p.vy + 0.62 * dt);
@@ -329,12 +372,12 @@ function gameLoop(timestamp) {
   coins.forEach(coin => {
     if (!coin.got && overlap(p, { x: coin.x - 9, y: coin.y - 9, w: 18, h: 18 })) {
       coin.got = true; runCoins++; updateHUD();
-      document.getElementById('message').textContent = '金币 +1！继续前进，找到终点。';
+      document.getElementById('message').textContent = '金币 +1！继续前进，找到终点旗帜。';
     }
   });
-  cameraX = Math.max(0, Math.min(WORLD_WIDTH - cv.width, p.x - cv.width * 0.38));
+  cameraX = Math.max(0, Math.min(worldWidth - cv.width, p.x - cv.width * 0.38));
   drawGame();
-  if (p.hp > 0 && overlap(p, FLAG_TRIGGER)) { finishLevel(); drawGame(); return; }
+  if (p.hp > 0 && overlap(p, flagTrigger)) { finishLevel(); drawGame(); return; }
   if (gameActive) requestAnimationFrame(gameLoop);
 }
 function drawGame() {
@@ -342,7 +385,6 @@ function drawGame() {
   const sky = ctx.createLinearGradient(0, 0, 0, cv.height);
   sky.addColorStop(0, '#74c9f0'); sky.addColorStop(1, '#d4f4ff');
   ctx.fillStyle = sky; ctx.fillRect(0, 0, cv.width, cv.height);
-  // Distant hills
   ctx.fillStyle = '#9bd28b';
   for (let i = 0; i < 7; i++) {
     const x = i * 230 - (cameraX * 0.22 % 230);
@@ -365,10 +407,8 @@ function drawGame() {
     ctx.fillStyle = '#52d86a'; ctx.beginPath(); ctx.roundRect(enemy.x, enemy.y, enemy.w, enemy.h, [12, 12, 5, 5]); ctx.fill();
     ctx.fillStyle = '#173b23'; ctx.fillRect(enemy.x + 7, enemy.y + 8, 4, 5); ctx.fillRect(enemy.x + 20, enemy.y + 8, 4, 5);
   });
-  // Finish flag
-  ctx.fillStyle = '#45302a'; ctx.fillRect(WORLD_WIDTH - 95, 220, 6, 100);
-  ctx.fillStyle = '#ffdf46'; ctx.beginPath(); ctx.moveTo(WORLD_WIDTH - 89, 221); ctx.lineTo(WORLD_WIDTH - 42, 238); ctx.lineTo(WORLD_WIDTH - 89, 255); ctx.fill();
-  // Player
+  ctx.fillStyle = '#45302a'; ctx.fillRect(worldWidth - 95, 220, 6, 100);
+  ctx.fillStyle = '#ffdf46'; ctx.beginPath(); ctx.moveTo(worldWidth - 89, 221); ctx.lineTo(worldWidth - 42, 238); ctx.lineTo(worldWidth - 89, 255); ctx.fill();
   if (invulnerable <= 0 || Math.floor(performance.now() / 90) % 2 === 0) {
     ctx.fillStyle = '#e9b786'; ctx.fillRect(p.x + 3, p.y, 18, 14);
     ctx.fillStyle = ['#34251e', '#a33', '#fc3'][save.equip.hair]; ctx.fillRect(p.x + 2, p.y - 2, 20, 7);
@@ -398,7 +438,6 @@ window.addEventListener('keyup', event => {
   if (event.key === 'ArrowRight' || event.key.toLowerCase() === 'd') keys.r = false;
 });
 window.addEventListener('blur', () => { keys.l = keys.r = false; });
-document.getElementById('message').addEventListener('click', () => { if (levelFinished) go('map'); });
 updateGoldUI();
 if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('sw.js').catch(() => {});
 </script>
