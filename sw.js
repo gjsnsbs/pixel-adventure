@@ -47,7 +47,9 @@ self.addEventListener('fetch', event => {
       } catch (_) { return fallback; }
     };
     window.drawEquippedPixelDetails = (ctx, x, y, save, vx = 0, timestamp = 0, cameraX = 0) => {
-      const walking = Math.abs(vx) > 0.35;
+      // Treat even slow movement as walking; return to the equipped idle pose
+      // as soon as the player's velocity has nearly settled.
+      const walking = Math.abs(vx) > 0.1;
       if (!walking) {
         drawEquipped(ctx, x, y, save);
         const sx = x - cameraX;
