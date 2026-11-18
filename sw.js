@@ -1,4 +1,4 @@
-const CACHE = 'pixel-adventure-v36';
+const CACHE = 'pixel-adventure-v37';
 const FILES = ['./', './index.html', './manifest.json', './customization.js', './inventory.js'];
 
 self.addEventListener('install', event => {
@@ -33,14 +33,13 @@ self.addEventListener('fetch', event => {
     }
     html = html.replace(/function drawChar\(\)\{[\s\S]*?\}\s*function updateShop\(/, 'function drawChar(){if(window.renderPixelShopAvatar)window.renderPixelShopAvatar()}\nfunction updateShop(');
 
-    // Replace the built-in player draw block so the old sprite is never left
-    // underneath the animated side-view sprite.
+    // Draw the player exactly once through the custom renderer; keeping the
+    // original sprite underneath can look like a jump/disappearance on turns.
     const playerBlock = /if\(invulnerable<=0\|\|Math\.floor\(performance\.now\(\)\/90\)%2===0\)\{[\s\S]*?ctx\.fillRect\(p\.x\+\(p\.vx<0\?5:15\),p\.y\+5,3,3\)\}/;
     html = html.replace(playerBlock, `if(invulnerable<=0||Math.floor(performance.now()/90)%2===0){if(window.drawEquippedPixelDetails)window.drawEquippedPixelDetails(ctx,p.x,p.y,save,p.vx,performance.now());else{ctx.fillStyle='#e9b786';ctx.fillRect(p.x+3,p.y,18,14);ctx.fillStyle=['#34251e','#a33','#fc3'][save.equip.hair];ctx.fillRect(p.x+2,p.y-2,20,7);ctx.fillStyle=['#fa0','#08f','#f3f'][save.equip.cloth];ctx.fillRect(p.x,p.y+14,p.w,18);ctx.fillStyle='#29364a';ctx.fillRect(p.x+2,p.y+32,8,4);ctx.fillRect(p.x+14,p.y+32,8,4);ctx.fillStyle='#17202c';ctx.fillRect(p.x+(p.vx<0?5:15),p.y+5,3,3)}}`);
 
     html = html.replace('</body>', `<script>
 (() => {
-  // customization.js is deferred, so install the animation hook after it has loaded.
   window.addEventListener('DOMContentLoaded', () => {
     if (typeof window.drawEquippedPixelDetails !== 'function') return;
     const drawEquipped = window.drawEquippedPixelDetails;
@@ -56,13 +55,15 @@ self.addEventListener('fetch', event => {
     };
 
     window.drawEquippedPixelDetails = (ctx, x, y, save, vx = 0, timestamp = 0) => {
+      if (!Number.isFinite(x) || !Number.isFinite(y)) return;
       const walking = Math.abs(vx) > 0.1;
       if (!walking) {
         drawEquipped(ctx, x, y, save);
         return;
       }
 
-      // Sample colors offscreen; do not read or restore game-canvas pixels.
+      // Sample colors only on the offscreen canvas, never from the scrolling
+      // game canvas, so leftward camera movement cannot erase/restore the sprite.
       sampleCtx.clearRect(0, 0, sampleCanvas.width, sampleCanvas.height);
       drawEquipped(sampleCtx, 0, 2, save);
       const skin = pixelColor(4, 12, '#e9b786');
@@ -72,22 +73,20 @@ self.addEventListener('fetch', event => {
       const shoe = pixelColor(5, 35, '#493425');
       const phase = Math.floor(timestamp / 110) % 2;
       const facingLeft = vx < 0;
-      // Mirror individual sprite parts around the 24px character width instead
-      // of changing the canvas transform. This keeps world/camera coordinates
-      // stable and prevents leftward movement from drawing outside the canvas.
-      const part = (localX, localY, width, height) => {
-        const drawX = x + (facingLeft ? 24 - localX - width : localX);
-        ctx.fillRect(drawX, y + localY, width, height);
-      };
 
+      // Mirror around the character's own 24px-wide local origin. The incoming
+      // context already contains the camera transform; no world-origin flipping.
       ctx.save();
-      // Side-on head, with one eye and a forward-facing nose. The staggered
-      // hair silhouette avoids the unwanted straight horizontal line on top.
+      ctx.translate(x + (facingLeft ? 24 : 0), y);
+      ctx.scale(facingLeft ? -1 : 1, 1);
+      const part = (localX, localY, width, height) => ctx.fillRect(localX, localY, width, height);
+
+      // Profile head, one eye and a stepped fringe rather than a straight top line.
       ctx.fillStyle = skin;
       part(7, 1, 11, 12);
       ctx.fillStyle = hair;
-      part(7, 0, 9, 2);
-      part(6, 2, 12, 3);
+      part(6, 2, 7, 3);
+      part(11, 0, 7, 2);
       part(6, 5, 3, 7);
       part(14, 3, 3, 3);
       ctx.fillStyle = skin;
