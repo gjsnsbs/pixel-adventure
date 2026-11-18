@@ -1,4 +1,4 @@
-const CACHE = 'pixel-adventure-v39';
+const CACHE = 'pixel-adventure-v40';
 const FILES = ['./', './index.html', './manifest.json', './customization.js', './inventory.js'];
 
 self.addEventListener('install', event => {
@@ -61,16 +61,19 @@ self.addEventListener('fetch', event => {
       const shirt = pixelColor(12, 21, '#fa0');
 
       if (!walking) {
-        // Keep the equipped front-facing avatar, then clearly paint both arms
-        // and hands over its torso so they remain visible at rest.
+        // Neutral front-facing idle pose: arms hang naturally at the sides.
+        // Keep them still; the reference is for pixel-art styling, not its pose.
         drawEquipped(ctx, x, y, save);
         ctx.save();
+        ctx.fillStyle = '#704832';
+        ctx.fillRect(x + 1, y + 16, 1, 7);
+        ctx.fillRect(x + 22, y + 16, 1, 7);
         ctx.fillStyle = shirt;
-        ctx.fillRect(x + 1, y + 16, 4, 7);
-        ctx.fillRect(x + 19, y + 16, 4, 7);
+        ctx.fillRect(x + 2, y + 16, 3, 7);
+        ctx.fillRect(x + 19, y + 16, 3, 7);
         ctx.fillStyle = skin;
-        ctx.fillRect(x + 1, y + 22, 4, 4);
-        ctx.fillRect(x + 19, y + 22, 4, 4);
+        ctx.fillRect(x + 2, y + 23, 3, 3);
+        ctx.fillRect(x + 19, y + 23, 3, 3);
         ctx.restore();
         return;
       }
@@ -85,7 +88,7 @@ self.addEventListener('fetch', event => {
       ctx.scale(facingLeft ? -1 : 1, 1);
       const part = (localX, localY, width, height) => ctx.fillRect(localX, localY, width, height);
 
-      // Side-profile head, face, and stepped hairline.
+      // Pixel-art side profile with a clear forehead, nose, cheek, and chin.
       ctx.fillStyle = skin;
       part(8, 2, 9, 3); part(7, 5, 11, 5); part(8, 10, 9, 3);
       part(17, 7, 3, 3); part(10, 12, 7, 1); part(6, 6, 2, 3);
@@ -96,7 +99,7 @@ self.addEventListener('fetch', event => {
       ctx.fillStyle = '#222'; part(15, 6, 2, 2);
       ctx.fillStyle = '#9b5b4b'; part(17, 11, 2, 1);
 
-      // Torso, opposing arm swings, legs, and feet.
+      // Side-facing walking silhouette keeps its own subtle arm/leg cycle.
       ctx.fillStyle = shirt;
       part(8, 13, 10, 13);
       part(7, phase ? 18 : 14, 3, 7);
