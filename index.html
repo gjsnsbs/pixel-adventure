@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<title>像素冒险 V25</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<link rel="manifest" href="manifest.json">
+<style>
+  body{margin:0;background:#111;color:#fff;font-family:sans-serif;overflow:hidden;touch-action:none}
+  #app{display:flex;flex-direction:column;height:100vh;width:100vw}
+  .screen{display:none;flex:1;flex-direction:column;align-items:center;justify-content:center}
+  .active{display:flex}
+  canvas{image-rendering:pixelated;background:#222;border:2px solid #555}
+  .row{display:flex;gap:8px;margin:8px}
+  .btn{padding:10px 16px;background:#36c;color:#fff;border:none;border-radius:4px;font-size:16px}
+  .panel{background:#222;padding:10px;border-radius:8px;max-width:90%;overflow-x:auto}
+  .slot{width:60px;height:60px;background:#333;display:inline-flex;align-items:center;justify-content:center;margin:4px;cursor:pointer;border:2px solid #555;font-size:12px;text-align:center}
+  .slot.locked{opacity:.4}
+  .slot.buy{background:#663}
+  .cell{font-size:32px;cursor:pointer}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="home" class="screen active">
+    <h1>像素冒险 V25</h1>
+    <button class="btn" onclick="showScreen('map')">开始游戏</button>
+  </div>
+  <div id="map" class="screen">
+    <h2>地图</h2>
+    <div id="mapGrid" class="row"></div>
+    <button class="btn" onclick="showScreen('shop')">商店换装</button>
+    <button class="btn" onclick="showScreen('home')">返回</button>
+  </div>
+  <div id="shop" class="screen">
+    <h2>商店 <span id="goldTxt"></span></h2>
+    <div id="shopPanel" class="panel"></div>
+    <button class="btn" onclick="showScreen('map')">返回地图</button>
+  </div>
+  <div id="battle" class="screen">
+    <h2>战斗！</h2>
+    <div id="enemyHp">HP 30 / 30</div>
+    <button class="btn" onclick="battleAttack()">攻击</button>
+    <button class="btn" onclick="showScreen('map')">逃跑</button>
+  </div>
+  <div id="charScreen" class="screen">
+    <canvas id="char" width="160" height="220"></canvas>
+  </div>
+</div>
+<script>
+  let save={gold:50,unlock:{hair:[0],cloth:[0],weapon:[0]},equip:{hair:0,cloth:0,weapon:0}};
+  try{save=Object.assign(save,JSON.parse(localStorage.getItem('v25')));}catch(e){}
+  function persist(){localStorage.setItem('v25',JSON.stringify(save));}
+  function showScreen(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById(id).classList.add('active');if(id=='shop')renderShop();if(id=='map')renderMap();if(id=='charScreen')drawChar();}
+  document.getElementById('goldTxt').textContent='💰'+save.gold;
+  
+  const items={hair:[{name:'黑发',price:0},{name:'红发',price:30},{name:'金发',price:50}],cloth:[{name:'蓝衣',price:0},{name:'绿衣',price:40},{name:'紫衣',price:60}],weapon:[{name:'拳',price:0},{name:'剑',price:50},{name:'法杖',price:80}]};
+  
+  function renderShop(){
+    document.getElementById('goldTxt').textContent='💰'+save.gold;
+    const sp=document.getElementById('shopPanel');sp.innerHTML='';
+    Object.entries(items).forEach(([type,arr])=>{
+      const row=document.createElement('div');row.className='row';
+      arr.forEach((it,i)=>{
+        const owned=save.unlock[type].includes(i);const eq=save.equip[type]==i;
+        const b=document.createElement('div');b.className='slot'+(owned?'':' locked');b.textContent=it.name+(eq?' ✅':'');
+        b.onclick=()=>{
+          if(owned){save.equip[type]=i;}
+          else if(save.gold>=it.price){save.gold-=it.price;save.unlock[type].push(i);save.equip[type]=i;}
+          else return alert('金币不够');
+          persist();renderShop();drawChar();
+        };
+        row.appendChild(b);
+        if(!owned){const buy=document.createElement('div');buy.className='slot buy';buy.textContent='💰'+it.price;buy.onclick=b.onclick;row.appendChild(buy);}
+      });
+      sp.appendChild(row);
+    });
+  }
+  function makeImg(draw){const c=document.createElement('canvas');c.width=160;c.height=220;draw(c.getContext('2d'));return c;}
+  const IMG={body:makeImg(c=>{c.fillStyle='#f1c27d';c.fillRect(60,70,40,40);c.fillRect(48,112,8,40);c.fillRect(104,112,8,40);c.fillStyle='#caa472';c.fillRect(56,150,48,70);}),
+    hair:[makeImg(c=>{c.fillStyle='#222';c.fillRect(56,54,48,22);}),makeImg(c=>{c.fillStyle='#a33';c.fillRect(56,54,48,22);}),makeImg(c=>{c.fillStyle='#fc3';c.fillRect(56,54,48,22);})],
+    cloth:[makeImg(c=>{c.fillStyle='#36c';c.fillRect(56,110,48,60);}),makeImg(c=>{c.fillStyle='#282';c.fillRect(56,110,48,60);}),makeImg(c=>{c.fillStyle='#82c';c.fillRect(56,110,48,60);})],
+    weapon:[makeImg(c=>{c.fillStyle='#ccc';c.fillRect(116,90,6,70);}),makeImg(c=>{c.fillStyle='#8f8';c.fillRect(118,120,30,4);}),makeImg(c=>{c.fillStyle='#f8f';c.fillRect(118,80,6,80);c.fillRect(112,74,18,10);})]
+  };
+  function drawChar(){const c=document.getElementById('char').getContext('2d');c.clearRect(0,0,160,220);c.drawImage(IMG.body,0,0);c.drawImage(IMG.cloth[save.equip.cloth],0,0);c.drawImage(IMG.hair[save.equip.hair],0,0);c.drawImage(IMG.weapon[save.equip.weapon],0,0);}
+  function renderMap(){const mg=document.getElementById('mapGrid');mg.innerHTML='';['🌲','🏔','🕳','👹','💎','🏠','⚔','❓'].forEach(t=>{const cell=document.createElement('div');cell.className='cell';cell.textContent=t;cell.onclick=()=>{enemyHp=30;document.getElementById('enemyHp').textContent='HP 30 / 30';showScreen('battle');};mg.appendChild(cell);});}
+  let enemyHp=30;
+  function battleAttack(){enemyHp-=Math.ceil(Math.random()*8+4);if(enemyHp<=0){alert('胜利！+20 金币');save.gold+=20;persist();enemyHp=30;document.getElementById('enemyHp').textContent='HP 30 / 30';showScreen('map');}else{document.getElementById('enemyHp').textContent='HP '+enemyHp+' / 30';}}
+  drawChar();
+  if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js');}
+</script>
+</body>
+</html>
