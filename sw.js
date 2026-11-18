@@ -1,4 +1,4 @@
-const CACHE = 'pixel-adventure-v38';
+const CACHE = 'pixel-adventure-v39';
 const FILES = ['./', './index.html', './manifest.json', './customization.js', './inventory.js'];
 
 self.addEventListener('install', event => {
@@ -33,7 +33,6 @@ self.addEventListener('fetch', event => {
     }
     html = html.replace(/function drawChar\(\)\{[\s\S]*?\}\s*function updateShop\(/, 'function drawChar(){if(window.renderPixelShopAvatar)window.renderPixelShopAvatar()}\nfunction updateShop(');
 
-    // Replace the built-in sprite so the custom movement sprite is drawn only once.
     const playerBlock = /if\(invulnerable<=0\|\|Math\.floor\(performance\.now\(\)\/90\)%2===0\)\{[\s\S]*?ctx\.fillRect\(p\.x\+\(p\.vx<0\?5:15\),p\.y\+5,3,3\)\}/;
     html = html.replace(playerBlock, `if(invulnerable<=0||Math.floor(performance.now()/90)%2===0){if(window.drawEquippedPixelDetails)window.drawEquippedPixelDetails(ctx,p.x,p.y,save,p.vx,performance.now());else{ctx.fillStyle='#e9b786';ctx.fillRect(p.x+3,p.y,18,14);ctx.fillStyle=['#34251e','#a33','#fc3'][save.equip.hair];ctx.fillRect(p.x+2,p.y-2,20,7);ctx.fillStyle=['#fa0','#08f','#f3f'][save.equip.cloth];ctx.fillRect(p.x,p.y+14,p.w,18);ctx.fillStyle='#29364a';ctx.fillRect(p.x+2,p.y+32,8,4);ctx.fillRect(p.x+14,p.y+32,8,4);ctx.fillStyle='#17202c';ctx.fillRect(p.x+(p.vx<0?5:15),p.y+5,3,3)}}`);
 
@@ -55,52 +54,49 @@ self.addEventListener('fetch', event => {
 
     window.drawEquippedPixelDetails = (ctx, x, y, save, vx = 0, timestamp = 0) => {
       if (!Number.isFinite(x) || !Number.isFinite(y)) return;
-      if (Math.abs(vx) <= 0.1) {
-        drawEquipped(ctx, x, y, save);
-        return;
-      }
-
-      // Sample colors offscreen; never read/restore pixels from the scrolling game canvas.
+      const walking = Math.abs(vx) > 0.1;
       sampleCtx.clearRect(0, 0, sampleCanvas.width, sampleCanvas.height);
       drawEquipped(sampleCtx, 0, 2, save);
       const skin = pixelColor(4, 12, '#e9b786');
-      const hair = pixelColor(8, 3, '#34251e');
       const shirt = pixelColor(12, 21, '#fa0');
+
+      if (!walking) {
+        // Keep the equipped front-facing avatar, then clearly paint both arms
+        // and hands over its torso so they remain visible at rest.
+        drawEquipped(ctx, x, y, save);
+        ctx.save();
+        ctx.fillStyle = shirt;
+        ctx.fillRect(x + 1, y + 16, 4, 7);
+        ctx.fillRect(x + 19, y + 16, 4, 7);
+        ctx.fillStyle = skin;
+        ctx.fillRect(x + 1, y + 22, 4, 4);
+        ctx.fillRect(x + 19, y + 22, 4, 4);
+        ctx.restore();
+        return;
+      }
+
+      const hair = pixelColor(8, 3, '#34251e');
       const pants = pixelColor(5, 30, '#29364a');
       const shoe = pixelColor(5, 35, '#493425');
       const phase = Math.floor(timestamp / 110) % 2;
       const facingLeft = vx < 0;
-
-      // Mirror around the character's local origin, preserving the canvas camera transform.
       ctx.save();
       ctx.translate(x + (facingLeft ? 24 : 0), y);
       ctx.scale(facingLeft ? -1 : 1, 1);
       const part = (localX, localY, width, height) => ctx.fillRect(localX, localY, width, height);
 
-      // Side-profile silhouette: forehead, projecting nose, chin and a visible ear.
+      // Side-profile head, face, and stepped hairline.
       ctx.fillStyle = skin;
-      part(8, 2, 9, 3);      // forehead
-      part(7, 5, 11, 5);     // eye and cheek
-      part(8, 10, 9, 3);     // lower face
-      part(17, 7, 3, 3);     // nose pointing forward
-      part(10, 12, 7, 1);    // chin
-      part(6, 6, 2, 3);      // ear
+      part(8, 2, 9, 3); part(7, 5, 11, 5); part(8, 10, 9, 3);
+      part(17, 7, 3, 3); part(10, 12, 7, 1); part(6, 6, 2, 3);
       ctx.fillStyle = hair;
-      // Tapered, stepped hairline (not a straight horizontal cap).
-      part(8, 0, 8, 2);
-      part(6, 2, 10, 2);
-      part(6, 4, 4, 3);
-      part(6, 6, 3, 6);
-      part(13, 2, 5, 2);
-      // Visible eye, brow, and small mouth give the profile readable expression.
-      ctx.fillStyle = '#34251e';
-      part(15, 5, 2, 1);
-      ctx.fillStyle = '#222';
-      part(15, 6, 2, 2);
-      ctx.fillStyle = '#9b5b4b';
-      part(17, 11, 2, 1);
+      part(8, 0, 8, 2); part(6, 2, 10, 2); part(6, 4, 4, 3);
+      part(6, 6, 3, 6); part(13, 2, 5, 2);
+      ctx.fillStyle = '#34251e'; part(15, 5, 2, 1);
+      ctx.fillStyle = '#222'; part(15, 6, 2, 2);
+      ctx.fillStyle = '#9b5b4b'; part(17, 11, 2, 1);
 
-      // Narrow torso and opposing arm swings.
+      // Torso, opposing arm swings, legs, and feet.
       ctx.fillStyle = shirt;
       part(8, 13, 10, 13);
       part(7, phase ? 18 : 14, 3, 7);
@@ -108,8 +104,6 @@ self.addEventListener('fetch', event => {
       ctx.fillStyle = skin;
       part(14, phase ? 20 : 24, 3, 3);
       part(7, phase ? 24 : 20, 3, 3);
-
-      // Alternating legs and feet.
       ctx.fillStyle = pants;
       part(8, 25 + (phase ? 2 : 0), 5, 7 - (phase ? 2 : 0));
       part(13, 25 + (phase ? 0 : 2), 5, 7 - (phase ? 0 : 2));
@@ -125,23 +119,19 @@ self.addEventListener('fetch', event => {
     let shopButton = [...home.querySelectorAll('button')].find(button => /go\\(['"]shop['"]\\)/.test(button.getAttribute('onclick') || ''));
     if (!shopButton) {
       shopButton = document.createElement('button');
-      shopButton.type = 'button';
-      shopButton.className = 'btn';
+      shopButton.type = 'button'; shopButton.className = 'btn';
       shopButton.addEventListener('click', () => window.go('shop'));
       home.appendChild(shopButton);
     }
     shopButton.textContent = '🛍️ 商店';
     shopButton.setAttribute('aria-label', '打开商店');
-
     if (!home.querySelector('[data-open-inventory]')) {
       const inventoryStyle = document.createElement('style');
       inventoryStyle.textContent = '#title.active ~ .inventory-open{display:none!important}';
       document.head.appendChild(inventoryStyle);
       const inventoryButton = document.createElement('button');
-      inventoryButton.type = 'button';
-      inventoryButton.className = 'btn';
-      inventoryButton.dataset.openInventory = 'true';
-      inventoryButton.textContent = '🎒 背包';
+      inventoryButton.type = 'button'; inventoryButton.className = 'btn';
+      inventoryButton.dataset.openInventory = 'true'; inventoryButton.textContent = '🎒 背包';
       inventoryButton.setAttribute('aria-label', '打开背包');
       inventoryButton.addEventListener('click', () => window.openInventory ? window.openInventory() : document.querySelector('.inventory-open')?.click());
       shopButton.insertAdjacentElement('afterend', inventoryButton);
@@ -151,10 +141,8 @@ self.addEventListener('fetch', event => {
   const map = document.querySelector('#map .center');
   if (map && !map.querySelector('[data-return-home]')) {
     const button = document.createElement('button');
-    button.type = 'button';
-    button.className = 'btn';
-    button.dataset.returnHome = 'true';
-    button.textContent = '返回主页';
+    button.type = 'button'; button.className = 'btn';
+    button.dataset.returnHome = 'true'; button.textContent = '返回主页';
     button.setAttribute('aria-label', '返回主页');
     button.addEventListener('click', () => window.go('title'));
     map.appendChild(button);
