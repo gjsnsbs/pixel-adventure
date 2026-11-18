@@ -1,4 +1,4 @@
-const CACHE = 'pixel-adventure-v29';
+const CACHE = 'pixel-adventure-v30';
 const FILES = ['./', './index.html', './manifest.json', './customization.js', './inventory.js'];
 
 self.addEventListener('install', event => {
@@ -48,6 +48,20 @@ self.addEventListener('fetch', event => {
     }
     shopButton.textContent = '🛍️ 商店';
     shopButton.setAttribute('aria-label', '打开商店');
+
+    if (!home.querySelector('[data-open-inventory]')) {
+      const inventoryStyle = document.createElement('style');
+      inventoryStyle.textContent = '#title.active ~ .inventory-open{display:none!important}';
+      document.head.appendChild(inventoryStyle);
+      const inventoryButton = document.createElement('button');
+      inventoryButton.type = 'button';
+      inventoryButton.className = 'btn';
+      inventoryButton.dataset.openInventory = 'true';
+      inventoryButton.textContent = '🎒 背包';
+      inventoryButton.setAttribute('aria-label', '打开背包');
+      inventoryButton.addEventListener('click', () => document.querySelector('.inventory-open')?.click());
+      shopButton.insertAdjacentElement('afterend', inventoryButton);
+    }
   }
 
   const map = document.querySelector('#map .center');
