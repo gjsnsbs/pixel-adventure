@@ -1,4 +1,4 @@
-const CACHE = 'pixel-adventure-v27';
+const CACHE = 'pixel-adventure-v28';
 const FILES = ['./', './index.html', './manifest.json', './customization.js'];
 
 self.addEventListener('install', event => {
@@ -21,7 +21,8 @@ self.addEventListener('fetch', event => {
     const cached = await caches.match(request);
     const response = cached || await fetch(request);
     const url = new URL(request.url);
-    if (url.origin !== self.location.origin || !/(^|\/)index\.html$/.test(url.pathname)) return response;
+    const isPage = /(^|\/)index\.html$/.test(url.pathname) || /\/pixel-adventure\/?$/.test(url.pathname);
+    if (url.origin !== self.location.origin || !isPage) return response;
 
     let html = await response.text();
     if (!html.includes('customization.js')) {
