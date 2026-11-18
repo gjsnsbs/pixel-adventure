@@ -1,4 +1,4 @@
-const CACHE = 'pixel-adventure-v31';
+const CACHE = 'pixel-adventure-v32';
 const FILES = ['./', './index.html', './manifest.json', './customization.js', './inventory.js'];
 
 self.addEventListener('install', event => {
@@ -76,7 +76,6 @@ self.addEventListener('fetch', event => {
       const facing = vx < 0 ? -1 : 1;
       const phase = Math.floor(timestamp / 110) % 2;
       ctx.save();
-      // Cover front-facing details, then draw a compact profile facing travel.
       ctx.fillStyle = skin;
       ctx.fillRect(x + 2, y, 20, 14);
       ctx.fillStyle = hair;
@@ -86,10 +85,8 @@ self.addEventListener('fetch', event => {
       ctx.fillRect(x + (facing > 0 ? 15 : 6), y + 5, 6, 8);
       ctx.fillStyle = '#222';
       ctx.fillRect(x + (facing > 0 ? 18 : 6), y + 6, 2, 2);
-
       ctx.fillStyle = shirt;
       ctx.fillRect(x + 5, y + 14, 14, 12);
-      // Arms swing opposite to the legs; hands remain visible at the ends.
       const armSwing = phase ? 3 : 0;
       ctx.fillRect(x + (facing > 0 ? 15 : 6), y + 17 + armSwing, 4, 7);
       ctx.fillStyle = skin;
