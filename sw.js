@@ -1,4 +1,4 @@
-const CACHE = 'pixel-adventure-v42';
+const CACHE = 'pixel-adventure-v43';
 const FILES = ['./', './index.html', './manifest.json', './customization.js', './inventory.js'];
 
 self.addEventListener('install', event => {
@@ -33,9 +33,8 @@ self.addEventListener('fetch', event => {
     }
     html = html.replace(/function drawChar\(\)\{[\s\S]*?\}\s*function updateShop\(/, 'function drawChar(){if(window.renderPixelShopAvatar)window.renderPixelShopAvatar()}\nfunction updateShop(');
 
-    // Route the actual in-game canvas draw through the equipped sprite renderer.
-    const playerBlock = /if\(invulnerable<=0\|\|Math\.floor\(performance\.now\(\)\/90\)%2===0\)\{ctx\.fillStyle='#e9b786';[\s\S]*?ctx\.fillRect\(p\.x\+\(p\.vx<0\?5:15\),p\.y\+5,3,3\)\}/;
-    html = html.replace(playerBlock, `if(invulnerable<=0||Math.floor(performance.now()/90)%2===0){if(window.drawEquippedPixelDetails)window.drawEquippedPixelDetails(ctx,p.x,p.y,save,p.vx,performance.now());else{ctx.fillStyle='#e9b786';ctx.fillRect(p.x+3,p.y,18,14);ctx.fillStyle=['#34251e','#a33','#fc3'][save.equip.hair];ctx.fillRect(p.x+2,p.y-2,20,7);ctx.fillStyle=['#fa0','#08f','#f3f'][save.equip.cloth];ctx.fillRect(p.x,p.y+14,p.w,18);ctx.fillStyle='#29364a';ctx.fillRect(p.x+2,p.y+32,8,4);ctx.fillRect(p.x+14,p.y+32,8,4)}}`);
+    const playerBlock = /if\(invulnerable<=0\|\|Math\.floor\(performance\.now\(\)\/90\)%2===0\)\{[\s\S]*?ctx\.fillRect\(p\.x\+\(p\.vx<0\?5:15\),p\.y\+5,3,3\)\}/;
+    html = html.replace(playerBlock, `if(invulnerable<=0||Math.floor(performance.now()/90)%2===0){if(window.drawEquippedPixelDetails)window.drawEquippedPixelDetails(ctx,p.x,p.y,save,p.vx,performance.now());else{ctx.fillStyle='#e9b786';ctx.fillRect(p.x+3,p.y,18,14);ctx.fillStyle=['#34251e','#a33','#fc3'][save.equip.hair];ctx.fillRect(p.x+2,p.y-2,20,7);ctx.fillStyle=['#fa0','#08f','#f3f'][save.equip.cloth];ctx.fillRect(p.x,p.y+14,p.w,18);ctx.fillStyle='#29364a';ctx.fillRect(p.x+2,p.y+32,8,4);ctx.fillRect(p.x+14,p.y+32,8,4);ctx.fillStyle='#17202c';ctx.fillRect(p.x+(p.vx<0?5:15),p.y+5,3,3)}}`);
 
     html = html.replace('</body>', `<script>
 (() => {
@@ -61,7 +60,6 @@ self.addEventListener('fetch', event => {
       const skin = pixelColor(4, 12, '#e9b786');
       const shirt = pixelColor(12, 21, '#fa0');
 
-      // Keep the character front-facing while standing still.
       if (!walking) {
         drawEquipped(ctx, x, y, save);
         ctx.save();
@@ -88,18 +86,33 @@ self.addEventListener('fetch', event => {
       ctx.scale(facingLeft ? -1 : 1, 1);
       const part = (localX, localY, width, height) => ctx.fillRect(localX, localY, width, height);
 
-      // Pixel-art side profile with a clear forehead, nose, cheek, and chin.
+      // Side-facing hair frames the head; leave the central face in skin tone.
       ctx.fillStyle = skin;
-      part(8, 2, 9, 3); part(7, 5, 11, 5); part(8, 10, 9, 3);
-      part(17, 7, 3, 3); part(10, 12, 7, 1); part(6, 6, 2, 3);
+      part(7, 2, 11, 10);
+      part(10, 11, 7, 2);
       ctx.fillStyle = hair;
-      part(8, 0, 8, 2); part(6, 2, 10, 2); part(6, 4, 4, 3);
-      part(6, 6, 3, 6); part(13, 2, 5, 2);
-      ctx.fillStyle = '#34251e'; part(15, 5, 2, 1);
-      ctx.fillStyle = '#222'; part(15, 6, 2, 2);
-      ctx.fillStyle = '#9b5b4b'; part(17, 11, 2, 1);
+      part(7, 0, 11, 3);
+      part(5, 2, 5, 5);
+      part(5, 6, 3, 7);
+      part(13, 3, 5, 2);
+      // A brimmed hat sits above the face, like the supplied reference.
+      ctx.fillStyle = '#211f23';
+      part(6, -4, 12, 4);
+      part(3, 0, 19, 2);
+      part(0, 2, 24, 2);
+      // Repaint the visible cheek, nose, chin and eye after the hair/hat layers.
+      ctx.fillStyle = skin;
+      part(10, 4, 7, 3);
+      part(8, 7, 10, 3);
+      part(10, 10, 7, 3);
+      part(18, 7, 3, 3);
+      ctx.fillStyle = '#fff1c9';
+      part(14, 6, 2, 2);
+      ctx.fillStyle = '#222';
+      part(15, 6, 1, 2);
+      ctx.fillStyle = '#9b5b4b';
+      part(17, 11, 2, 1);
 
-      // Side-facing walking silhouette keeps its own subtle arm/leg cycle.
       ctx.fillStyle = shirt;
       part(8, 13, 10, 13);
       part(7, phase ? 18 : 14, 3, 7);
