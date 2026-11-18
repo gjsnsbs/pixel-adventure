@@ -1,4 +1,4 @@
-const CACHE = 'pixel-adventure-v37';
+const CACHE = 'pixel-adventure-v38';
 const FILES = ['./', './index.html', './manifest.json', './customization.js', './inventory.js'];
 
 self.addEventListener('install', event => {
@@ -33,8 +33,7 @@ self.addEventListener('fetch', event => {
     }
     html = html.replace(/function drawChar\(\)\{[\s\S]*?\}\s*function updateShop\(/, 'function drawChar(){if(window.renderPixelShopAvatar)window.renderPixelShopAvatar()}\nfunction updateShop(');
 
-    // Draw the player exactly once through the custom renderer; keeping the
-    // original sprite underneath can look like a jump/disappearance on turns.
+    // Replace the built-in sprite so the custom movement sprite is drawn only once.
     const playerBlock = /if\(invulnerable<=0\|\|Math\.floor\(performance\.now\(\)\/90\)%2===0\)\{[\s\S]*?ctx\.fillRect\(p\.x\+\(p\.vx<0\?5:15\),p\.y\+5,3,3\)\}/;
     html = html.replace(playerBlock, `if(invulnerable<=0||Math.floor(performance.now()/90)%2===0){if(window.drawEquippedPixelDetails)window.drawEquippedPixelDetails(ctx,p.x,p.y,save,p.vx,performance.now());else{ctx.fillStyle='#e9b786';ctx.fillRect(p.x+3,p.y,18,14);ctx.fillStyle=['#34251e','#a33','#fc3'][save.equip.hair];ctx.fillRect(p.x+2,p.y-2,20,7);ctx.fillStyle=['#fa0','#08f','#f3f'][save.equip.cloth];ctx.fillRect(p.x,p.y+14,p.w,18);ctx.fillStyle='#29364a';ctx.fillRect(p.x+2,p.y+32,8,4);ctx.fillRect(p.x+14,p.y+32,8,4);ctx.fillStyle='#17202c';ctx.fillRect(p.x+(p.vx<0?5:15),p.y+5,3,3)}}`);
 
@@ -56,14 +55,12 @@ self.addEventListener('fetch', event => {
 
     window.drawEquippedPixelDetails = (ctx, x, y, save, vx = 0, timestamp = 0) => {
       if (!Number.isFinite(x) || !Number.isFinite(y)) return;
-      const walking = Math.abs(vx) > 0.1;
-      if (!walking) {
+      if (Math.abs(vx) <= 0.1) {
         drawEquipped(ctx, x, y, save);
         return;
       }
 
-      // Sample colors only on the offscreen canvas, never from the scrolling
-      // game canvas, so leftward camera movement cannot erase/restore the sprite.
+      // Sample colors offscreen; never read/restore pixels from the scrolling game canvas.
       sampleCtx.clearRect(0, 0, sampleCanvas.width, sampleCanvas.height);
       drawEquipped(sampleCtx, 0, 2, save);
       const skin = pixelColor(4, 12, '#e9b786');
@@ -74,25 +71,34 @@ self.addEventListener('fetch', event => {
       const phase = Math.floor(timestamp / 110) % 2;
       const facingLeft = vx < 0;
 
-      // Mirror around the character's own 24px-wide local origin. The incoming
-      // context already contains the camera transform; no world-origin flipping.
+      // Mirror around the character's local origin, preserving the canvas camera transform.
       ctx.save();
       ctx.translate(x + (facingLeft ? 24 : 0), y);
       ctx.scale(facingLeft ? -1 : 1, 1);
       const part = (localX, localY, width, height) => ctx.fillRect(localX, localY, width, height);
 
-      // Profile head, one eye and a stepped fringe rather than a straight top line.
+      // Side-profile silhouette: forehead, projecting nose, chin and a visible ear.
       ctx.fillStyle = skin;
-      part(7, 1, 11, 12);
+      part(8, 2, 9, 3);      // forehead
+      part(7, 5, 11, 5);     // eye and cheek
+      part(8, 10, 9, 3);     // lower face
+      part(17, 7, 3, 3);     // nose pointing forward
+      part(10, 12, 7, 1);    // chin
+      part(6, 6, 2, 3);      // ear
       ctx.fillStyle = hair;
-      part(6, 2, 7, 3);
-      part(11, 0, 7, 2);
-      part(6, 5, 3, 7);
-      part(14, 3, 3, 3);
-      ctx.fillStyle = skin;
-      part(17, 7, 3, 3);
+      // Tapered, stepped hairline (not a straight horizontal cap).
+      part(8, 0, 8, 2);
+      part(6, 2, 10, 2);
+      part(6, 4, 4, 3);
+      part(6, 6, 3, 6);
+      part(13, 2, 5, 2);
+      // Visible eye, brow, and small mouth give the profile readable expression.
+      ctx.fillStyle = '#34251e';
+      part(15, 5, 2, 1);
       ctx.fillStyle = '#222';
-      part(15, 5, 2, 2);
+      part(15, 6, 2, 2);
+      ctx.fillStyle = '#9b5b4b';
+      part(17, 11, 2, 1);
 
       // Narrow torso and opposing arm swings.
       ctx.fillStyle = shirt;
@@ -137,7 +143,7 @@ self.addEventListener('fetch', event => {
       inventoryButton.dataset.openInventory = 'true';
       inventoryButton.textContent = '🎒 背包';
       inventoryButton.setAttribute('aria-label', '打开背包');
-      inventoryButton.addEventListener('click', () => document.querySelector('.inventory-open')?.click());
+      inventoryButton.addEventListener('click', () => window.openInventory ? window.openInventory() : document.querySelector('.inventory-open')?.click());
       shopButton.insertAdjacentElement('afterend', inventoryButton);
     }
   }
