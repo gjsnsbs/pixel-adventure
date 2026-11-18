@@ -27,13 +27,14 @@
   #shop .center { overflow: auto; }
   #char { width: 140px; height: 190px; background: #111; border: 2px solid #52677e; border-radius: 8px; image-rendering: pixelated; }
   #goldText { margin: 8px; color: #ffd84a; }
+  #saveStatus { min-height: 21px; color: #bdc9d5; font-size: 13px; }
   #play { background: #101522; }
   .top { min-height: 46px; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 7px 12px; background: #172131; font-size: 14px; }
   #game { display: block; width: 100%; height: auto; max-height: 62vh; background: #83d6f4; image-rendering: pixelated; }
   #message { min-height: 26px; padding: 4px 10px; color: #ffe083; text-align: center; font-size: 14px; }
   .pad { flex: 1; min-height: 100px; display: flex; justify-content: space-between; align-items: flex-end; padding: 8px max(16px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left)); }
   .left, .right { display: flex; gap: 12px; }
-  .key { width: 68px; height: 68px; display: grid; place-items: center; border: 2px solid #637b94; border-radius: 14px; background: #26364a; font-size: 28px; user-select: none; touch-action: none; }
+  .key { width: 68px; height: 68px; display: grid; place-items: center; border: 2px solid #637b94; border-radius: 14px; background: #26364a; font-size: 28px; user-select: none; touch-action: none; cursor: pointer; }
   .key.jump { width: 84px; height: 84px; font-size: 20px; }
   .key.pressed { background: #55718e; }
   #battle { background: radial-gradient(ellipse at 50% 35%, #583b4d, #101522 70%); }
@@ -51,6 +52,8 @@
     <p class="subtitle">收集金币，躲开史莱姆，抵达终点！</p>
     <button class="btn" onclick="go('map')">开始冒险</button>
     <button class="btn" onclick="go('shop')">角色换装</button>
+    <button class="btn" onclick="saveProgress(true)">保存进度</button>
+    <p id="saveStatus" aria-live="polite"></p>
     <p class="note">电脑：方向键移动，空格跳跃。手机：使用屏幕下方的方向键和跳跃键。</p>
   </div>
 </div>
@@ -60,6 +63,7 @@
     <h2>选择区域</h2>
     <div class="grid" id="mapGrid"></div>
     <p class="note">🌿青草平原是横版闯关；👹怪物洞穴可以进行回合制战斗；💎宝箱可领取金币。</p>
+    <button class="btn" onclick="saveProgress(true)">保存进度</button>
     <button class="btn" onclick="go('title')">返回标题</button>
   </div>
 </div>
@@ -107,7 +111,8 @@
 <script>
 'use strict';
 const SAVE_KEY = 'pixel-adventure-save-v1';
-const defaults = { gold: 4, equip: { cloth: 0, hair: 0, weapon: 0 } };
+const LEVEL_ID = 'meadow-1';
+const defaults = { gold: 4, equip: { cloth: 0, hair: 0, weapon: 0 }, clearedLevels: [] };
 let save = loadSave();
 let enemyHp = 30;
 let p = null;
@@ -122,6 +127,7 @@ let runCoins = 0;
 let levelFinished = false;
 const WORLD_WIDTH = 1800;
 const GROUND_Y = 320;
+const FLAG_TRIGGER = { x: WORLD_WIDTH - 100, y: 210, w: 60, h: 110 };
 const cv = document.getElementById('game');
 const ctx = cv.getContext('2d');
 const platforms = [
@@ -136,20 +142,28 @@ const platforms = [
 function loadSave() {
   try {
     const stored = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null');
-    if (!stored || typeof stored !== 'object') return structuredClone(defaults);
+    if (!stored || typeof stored !== 'object') return { ...defaults, equip: { ...defaults.equip }, clearedLevels: [] };
     return {
       gold: Number.isFinite(stored.gold) ? Math.max(0, stored.gold) : defaults.gold,
       equip: {
         cloth: Number.isInteger(stored.equip?.cloth) ? ((stored.equip.cloth % 3) + 3) % 3 : 0,
         hair: Number.isInteger(stored.equip?.hair) ? ((stored.equip.hair % 3) + 3) % 3 : 0,
         weapon: Number.isInteger(stored.equip?.weapon) ? ((stored.equip.weapon % 3) + 3) % 3 : 0
-      }
+      },
+      clearedLevels: Array.isArray(stored.clearedLevels) ? stored.clearedLevels.filter(id => typeof id === 'string') : []
     };
-  } catch (_) { return { gold: 4, equip: { cloth: 0, hair: 0, weapon: 0 } }; }
+  } catch (_) { return { ...defaults, equip: { ...defaults.equip }, clearedLevels: [] }; }
 }
-function saveProgress() {
-  try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); } catch (_) { /* Storage may be disabled. */ }
+function saveProgress(showStatus = false) {
+  let saved = false;
+  try {
+    localStorage.setItem(SAVE_KEY, JSON.stringify(save));
+    saved = true;
+  } catch (_) { /* Storage may be disabled or full. */ }
   updateGoldUI();
+  const status = document.getElementById('saveStatus');
+  if (status && showStatus) status.textContent = saved ? '进度已保存到此设备。' : '保存失败：浏览器存储不可用。';
+  return saved;
 }
 function go(id) {
   document.querySelectorAll('.screen').forEach(screen => screen.classList.remove('active'));
@@ -164,8 +178,9 @@ function go(id) {
 function renderMap() {
   const grid = document.getElementById('mapGrid');
   grid.replaceChildren();
+  const cleared = save.clearedLevels.includes(LEVEL_ID);
   const places = [
-    { icon: '🌿', label: '青草平原', action: () => go('play') },
+    { icon: cleared ? '✅' : '🌿', label: cleared ? '青草平原（已通关）' : '青草平原', action: () => go('play') },
     { icon: '👹', label: '怪物洞穴', action: () => { enemyHp = 30; go('battle'); } },
     { icon: '💎', label: '宝箱', action: () => { save.gold += 5; saveProgress(); renderMap(); } },
     { icon: '🏠', label: '换装商店', action: () => go('shop') }
@@ -219,7 +234,7 @@ function updateGoldUI() {
   if (gold) gold.textContent = `金币 ${save.gold}`;
 }
 function startLevel() {
-  p = { x: 48, y: GROUND_Y - 36, w: 24, h: 36, vx: 0, vy: 0, onGround: true };
+  p = { x: 48, y: GROUND_Y - 36, w: 24, h: 36, vx: 0, vy: 0, hp: 3, onGround: true };
   enemies = [
     { x: 360, y: GROUND_Y - 24, w: 30, h: 24, min: 310, max: 470, vx: 1.3, alive: true },
     { x: 900, y: GROUND_Y - 24, w: 30, h: 24, min: 850, max: 1010, vx: -1.5, alive: true },
@@ -230,7 +245,9 @@ function startLevel() {
     [1010, 278], [1120, 187], [1290, 278], [1415, 222], [1580, 278], [1710, 278]
   ].map(([x, y]) => ({ x, y, got: false }));
   cameraX = 0; runCoins = 0; invulnerable = 0; levelFinished = false;
-  document.getElementById('message').textContent = '收集金币并到达右侧终点！';
+  const message = document.getElementById('message');
+  message.onclick = null;
+  message.textContent = '收集金币并碰到终点旗帜通关！';
   updateHUD();
   gameActive = true;
   lastFrame = 0;
@@ -265,7 +282,9 @@ function finishLevel() {
   if (levelFinished) return;
   levelFinished = true; gameActive = false;
   const reward = runCoins + 5;
-  save.gold += reward; saveProgress(); updateHUD();
+  save.gold += reward;
+  if (!save.clearedLevels.includes(LEVEL_ID)) save.clearedLevels.push(LEVEL_ID);
+  saveProgress(); updateHUD();
   document.getElementById('message').textContent = `通关！收集 ${runCoins} 枚金币，额外奖励 5 金币。获得 ${reward} 金币！`;
   document.getElementById('message').onclick = () => go('map');
   setTimeout(() => { if (document.getElementById('play').classList.contains('active')) go('map'); }, 1800);
@@ -292,7 +311,11 @@ function gameLoop(timestamp) {
       p.y = platform.y - p.h; p.vy = 0; p.onGround = true;
     }
   }
-  if (p.y > cv.height + 100) { p.hp = 0; updateHUD(); gameActive = false; document.getElementById('message').textContent = '掉出平台，关卡失败。'; setTimeout(() => { if (document.getElementById('play').classList.contains('active')) go('map'); }, 1000); }
+  if (p.y > cv.height + 100) {
+    p.hp = 0; updateHUD(); gameActive = false; document.getElementById('message').textContent = '掉出平台，关卡失败。';
+    setTimeout(() => { if (document.getElementById('play').classList.contains('active')) go('map'); }, 1100);
+    return;
+  }
 
   enemies.forEach(enemy => {
     if (!enemy.alive) return;
@@ -311,7 +334,7 @@ function gameLoop(timestamp) {
   });
   cameraX = Math.max(0, Math.min(WORLD_WIDTH - cv.width, p.x - cv.width * 0.38));
   drawGame();
-  if (p.x > WORLD_WIDTH - 100 && p.hp > 0) { finishLevel(); drawGame(); return; }
+  if (p.hp > 0 && overlap(p, FLAG_TRIGGER)) { finishLevel(); drawGame(); return; }
   if (gameActive) requestAnimationFrame(gameLoop);
 }
 function drawGame() {
