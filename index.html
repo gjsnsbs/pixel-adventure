@@ -1,273 +1,383 @@
-<!DOCTYPE html>
-<html lang="zh-CN">
+<!DOCTYPE html>
+<html lang="zh-CN">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
-<title>像素冒险 V25 横版</title>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+<title>像素冒险</title>
 <style>
-  * { box-sizing: border-box; }
-  html, body {
-    margin: 0; height: 100%;
-    background: #000; color: #fff;
-    font-family: monospace; overflow: hidden;
-    touch-action: none; user-select: none;
-  }
-
-  .screen { display: none; position: absolute; inset: 0; flex-direction: column; }
-  .screen.active { display: flex; }
-
-  h1 { font-size: 36px; color: gold; letter-spacing: 4px; }
-  .btn {
-    background: #222; border: 2px solid #555;
-    padding: 14px 22px; margin: 6px; font-size: 18px;
-    cursor: pointer; border-radius: 6px; text-align: center;
-  }
-  .btn:active { background: #444; }
-
-  .center { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-
-  /* 横版 */
-  #play { background: #000; }
-  #game {
-    width: 100%; height: 62vh;
-    image-rendering: pixelated;
-    background: #87ceeb;
-    border-bottom: 2px solid #333;
-  }
-  .top {
-    display: flex; justify-content: space-between;
-    padding: 8px 12px; background: #111; font-size: 16px;
-  }
-  .pad {
-    flex: 1; display: flex; justify-content: space-between;
-    align-items: flex-end; padding: 12px 18px;
-  }
-  .left, .right { display: flex; gap: 12px; }
-  .key {
-    width: 76px; height: 76px; background: #222;
-    border: 2px solid #555; border-radius: 10px;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 30px;
-  }
-  .jump { width: 96px; height: 96px; font-size: 22px; }
-
-  .grid { display: grid; grid-template-columns: repeat(4, 64px); gap: 8px; margin-top: 10px; }
-  .cell { width: 64px; height: 64px; background: #222; font-size: 30px; display: flex; align-items: center; justify-content: center; }
+  :root { color-scheme: dark; font-family: system-ui, sans-serif; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; min-height: 100%; background: #101522; color: #fff; touch-action: manipulation; }
+  body { min-height: 100dvh; }
+  button { color: inherit; font: inherit; }
+  .screen { display: none; position: fixed; inset: 0; overflow: auto; }
+  .screen.active { display: flex; flex-direction: column; }
+  .center { flex: 1; min-height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px; text-align: center; }
+  #title { background: radial-gradient(ellipse at 50% 30%, #315c78, #101522 70%); }
+  h1 { margin: 0 0 8px; color: #ffd84a; font-size: clamp(32px, 8vw, 56px); letter-spacing: 3px; text-shadow: 3px 4px #713d28; }
+  h2 { margin: 0 0 12px; }
+  .subtitle { color: #c9d8e8; margin: 0 0 20px; }
+  .btn { border: 2px solid #7990a8; border-radius: 10px; background: #26364a; padding: 12px 20px; margin: 5px; min-width: 150px; cursor: pointer; box-shadow: 0 4px #111a26; }
+  .btn:hover, .btn:focus-visible { background: #38536e; }
+  .btn:active { transform: translateY(2px); box-shadow: 0 2px #111a26; }
+  .grid { display: grid; grid-template-columns: repeat(4, minmax(58px, 72px)); gap: 9px; margin: 14px 0; }
+  .cell { min-height: 64px; border: 2px solid #52677e; border-radius: 10px; background: #1d2c3d; font-size: 30px; cursor: pointer; }
+  .cell:hover { background: #30475f; }
+  .note { max-width: 440px; color: #bdc9d5; font-size: 14px; line-height: 1.5; }
+  #shop .center { overflow: auto; }
+  #char { width: 140px; height: 190px; background: #111; border: 2px solid #52677e; border-radius: 8px; image-rendering: pixelated; }
+  #goldText { margin: 8px; color: #ffd84a; }
+  #play { background: #101522; }
+  .top { min-height: 46px; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 7px 12px; background: #172131; font-size: 14px; }
+  #game { display: block; width: 100%; height: auto; max-height: 62vh; background: #83d6f4; image-rendering: pixelated; }
+  #message { min-height: 26px; padding: 4px 10px; color: #ffe083; text-align: center; font-size: 14px; }
+  .pad { flex: 1; min-height: 100px; display: flex; justify-content: space-between; align-items: flex-end; padding: 8px max(16px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left)); }
+  .left, .right { display: flex; gap: 12px; }
+  .key { width: 68px; height: 68px; display: grid; place-items: center; border: 2px solid #637b94; border-radius: 14px; background: #26364a; font-size: 28px; user-select: none; touch-action: none; }
+  .key.jump { width: 84px; height: 84px; font-size: 20px; }
+  .key.pressed { background: #55718e; }
+  #battle { background: radial-gradient(ellipse at 50% 35%, #583b4d, #101522 70%); }
+  .enemy-art { font-size: 76px; margin: 10px; }
+  @media (min-width: 800px) {
+    .pad { max-width: 960px; width: 100%; align-self: center; }
+    #game { max-height: 58vh; object-fit: contain; }
+  }
 </style>
 </head>
-
 <body>
-
-<!-- 标题 -->
-<div id="title" class="screen active">
-  <div class="center">
-    <h1>像素冒险 V25</h1>
-    <div class="btn" onclick="go('map')">开始游戏</div>
-    <div class="btn" onclick="go('shop')">商店换装</div>
-  </div>
+<div id="title" class="screen active">
+  <div class="center">
+    <h1>像素冒险</h1>
+    <p class="subtitle">收集金币，躲开史莱姆，抵达终点！</p>
+    <button class="btn" onclick="go('map')">开始冒险</button>
+    <button class="btn" onclick="go('shop')">角色换装</button>
+    <p class="note">电脑：方向键移动，空格跳跃。手机：使用屏幕下方的方向键和跳跃键。</p>
+  </div>
 </div>
 
-<!-- 地图 -->
-<div id="map" class="screen">
-  <div class="center">
-    <h2>选择区域</h2>
-    <div class="grid" id="mapGrid"></div>
-    <div class="btn" onclick="go('title')">返回</div>
-  </div>
+<div id="map" class="screen">
+  <div class="center">
+    <h2>选择区域</h2>
+    <div class="grid" id="mapGrid"></div>
+    <p class="note">🌿青草平原是横版闯关；👹怪物洞穴可以进行回合制战斗；💎宝箱可领取金币。</p>
+    <button class="btn" onclick="go('title')">返回标题</button>
+  </div>
 </div>
 
-<!-- 商店 -->
-<div id="shop" class="screen">
-  <div class="center">
-    <h2>换装</h2>
-    <canvas id="char" width="160" height="220" style="background:#000"></canvas>
-    <div class="btn" onclick="change(0)">衣服</div>
-    <div class="btn" onclick="change(1)">头发</div>
-    <div class="btn" onclick="change(2)">武器</div>
-    <div id="goldText"></div>
-    <div class="btn" onclick="go('title')">返回</div>
-  </div>
+<div id="shop" class="screen">
+  <div class="center">
+    <h2>角色换装</h2>
+    <canvas id="char" width="160" height="220"></canvas>
+    <div id="goldText"></div>
+    <button class="btn" onclick="change(0)">更换衣服（3金币）</button>
+    <button class="btn" onclick="change(1)">更换头发（3金币）</button>
+    <button class="btn" onclick="change(2)">更换武器（3金币）</button>
+    <button class="btn" onclick="go('title')">返回标题</button>
+  </div>
 </div>
 
-<!-- 战斗 -->
-<div id="battle" class="screen">
-  <div class="center">
-    <h2>战斗</h2>
-    <div id="enemyHp" style="font-size:24px">HP 30 / 30</div>
-    <div class="btn" onclick="atk()">攻击</div>
-    <div class="btn" onclick="go('map')">逃跑</div>
-  </div>
+<div id="battle" class="screen">
+  <div class="center">
+    <h2>怪物洞穴</h2>
+    <div class="enemy-art" aria-hidden="true">👹</div>
+    <div id="enemyHp">怪物 HP 30 / 30</div>
+    <div id="battleText" class="note">怪物挡住了去路！</div>
+    <button class="btn" onclick="atk()">攻击</button>
+    <button class="btn" onclick="go('map')">逃跑</button>
+  </div>
 </div>
 
-<!-- 横版 -->
-<div id="play" class="screen">
-  <div class="top">
-    <div id="hearts">❤️❤️❤️</div>
-    <div>青草平原</div>
-    <div>金币 <span id="coinUI">0</span></div>
-  </div>
-  <canvas id="game" width="960" height="360"></canvas>
-  <div class="pad">
-    <div class="left">
-      <div class="key" id="kL">◀</div>
-      <div class="key" id="kR">▶</div>
-    </div>
-    <div class="right">
-      <div class="key jump" id="kJ">跳</div>
-    </div>
-  </div>
+<div id="play" class="screen">
+  <div class="top">
+    <div id="hearts" aria-label="生命值">❤️❤️❤️</div>
+    <strong>青草平原</strong>
+    <div>🪙 <span id="coinUI">0</span>　<span id="goldUI">金币 4</span></div>
+  </div>
+  <canvas id="game" width="960" height="360" aria-label="横版冒险游戏画面"></canvas>
+  <div id="message">收集金币并到达右侧终点！</div>
+  <div class="pad">
+    <div class="left">
+      <button class="key" id="kL" aria-label="向左">◀</button>
+      <button class="key" id="kR" aria-label="向右">▶</button>
+    </div>
+    <button class="key jump" id="kJ" aria-label="跳跃">跳跃</button>
+  </div>
 </div>
 
 <script>
-/* ========== 状态 ========== */
-let save = { gold: 4, coins: 0, hp: 3, equip: { cloth:0, hair:0, weapon:0 } };
-let enemyHp = 30;
+'use strict';
+const SAVE_KEY = 'pixel-adventure-save-v1';
+const defaults = { gold: 4, equip: { cloth: 0, hair: 0, weapon: 0 } };
+let save = loadSave();
+let enemyHp = 30;
+let p = null;
+let enemies = [];
+let coins = [];
+let keys = { l: false, r: false };
+let cameraX = 0;
+let lastFrame = 0;
+let gameActive = false;
+let invulnerable = 0;
+let runCoins = 0;
+let levelFinished = false;
+const WORLD_WIDTH = 1800;
+const GROUND_Y = 320;
+const cv = document.getElementById('game');
+const ctx = cv.getContext('2d');
+const platforms = [
+  { x: 0, y: GROUND_Y, w: WORLD_WIDTH, h: 40 },
+  { x: 270, y: 260, w: 130, h: 16 },
+  { x: 520, y: 220, w: 150, h: 16 },
+  { x: 790, y: 270, w: 150, h: 16 },
+  { x: 1080, y: 225, w: 150, h: 16 },
+  { x: 1370, y: 260, w: 150, h: 16 }
+];
 
-function go(id){
-  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
-  document.getElementById(id).classList.add('active');
-  if(id==='map') renderMap();
-  if(id==='shop'){ drawChar(); goldText.textContent = '金币: '+save.gold; }
-  if(id==='play') startLevel();
+function loadSave() {
+  try {
+    const stored = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null');
+    if (!stored || typeof stored !== 'object') return structuredClone(defaults);
+    return {
+      gold: Number.isFinite(stored.gold) ? Math.max(0, stored.gold) : defaults.gold,
+      equip: {
+        cloth: Number.isInteger(stored.equip?.cloth) ? ((stored.equip.cloth % 3) + 3) % 3 : 0,
+        hair: Number.isInteger(stored.equip?.hair) ? ((stored.equip.hair % 3) + 3) % 3 : 0,
+        weapon: Number.isInteger(stored.equip?.weapon) ? ((stored.equip.weapon % 3) + 3) % 3 : 0
+      }
+    };
+  } catch (_) { return { gold: 4, equip: { cloth: 0, hair: 0, weapon: 0 } }; }
 }
-
-/* ========== 地图 ========== */
-function renderMap(){
-  const g = document.getElementById('mapGrid');
-  g.innerHTML = '';
-  const cells = ['🌲','🏔','🕳','👹','💎','🏠','⚔','❓'];
-  cells.forEach(t=>{
-    const c = document.createElement('div');
-    c.className = 'cell'; c.textContent = t;
-    c.onclick = ()=>{
-      if(t==='👹'||t==='⚔'){ enemyHp=30; enemyHpEl(); go('battle'); }
-      else if(t==='💎'){ save.gold+=5; renderMap(); }
-      else { save.hp=3; save.coins=0; go('play'); }
-    };
-    g.appendChild(c);
-  });
+function saveProgress() {
+  try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); } catch (_) { /* Storage may be disabled. */ }
+  updateGoldUI();
 }
-
-/* ========== 战斗 ========== */
-function enemyHpEl(){ document.getElementById('enemyHp').textContent = 'HP '+enemyHp+' / 30'; }
-function atk(){
-  enemyHp -= Math.ceil(Math.random() * 8+4);
-  if(enemyHp<=0){ save.gold+=20; enemyHp=30; enemyHpEl(); alert('胜利！+20金币'); go('map'); }
-  else enemyHpEl();
+function go(id) {
+  document.querySelectorAll('.screen').forEach(screen => screen.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  keys.l = keys.r = false;
+  document.querySelectorAll('.key').forEach(key => key.classList.remove('pressed'));
+  if (id === 'map') renderMap();
+  if (id === 'shop') { drawChar(); updateShop(); }
+  if (id === 'play') startLevel();
+  if (id === 'battle') updateBattle();
 }
-
-/* ========== 商店 ========== */
-function drawChar(){
-  const c = document.getElementById('char').getContext('2d');
-  c.clearRect(0,0,160,220);
-  c.fillStyle = ['#fa0','#08f','#f3f'][save.equip.cloth];
-  c.fillRect(56,110,48,60);
-  c.fillStyle = ['#000','#a33','#fc3'][save.equip.hair];
-  c.fillRect(56,98,48,16);
+function renderMap() {
+  const grid = document.getElementById('mapGrid');
+  grid.replaceChildren();
+  const places = [
+    { icon: '🌿', label: '青草平原', action: () => go('play') },
+    { icon: '👹', label: '怪物洞穴', action: () => { enemyHp = 30; go('battle'); } },
+    { icon: '💎', label: '宝箱', action: () => { save.gold += 5; saveProgress(); renderMap(); } },
+    { icon: '🏠', label: '换装商店', action: () => go('shop') }
+  ];
+  places.forEach(place => {
+    const button = document.createElement('button');
+    button.className = 'cell'; button.textContent = place.icon; button.title = place.label; button.setAttribute('aria-label', place.label); button.onclick = place.action;
+    grid.appendChild(button);
+  });
 }
-function change(t){
-  save.equip.cloth = t===0 ? (save.equip.cloth+1)%3 : save.equip.cloth;
-  save.equip.hair = t===1 ? (save.equip.hair+1)%3 : save.equip.hair;
-  save.equip.weapon = t===2 ? (save.equip.weapon+1)%3 : save.equip.weapon;
-  drawChar();
+function updateBattle() {
+  document.getElementById('enemyHp').textContent = `怪物 HP ${Math.max(0, enemyHp)} / 30`;
 }
-
-/* ========== 横版 ========== */
-const cv = document.getElementById('game');
-const ctx = cv.getContext('2d');
-let p, enemies, coins, keys = {}, running = false;
-
-function startLevel(){
-  p = { x:60, y:280, w:24, h:36, vx:0, vy:0, onG:true };
-  enemies = [
-    { x:300, y:300, w:28, h:24, vx:1.2, t:'slime' },
-    { x:600, y:120, w:28, h:20, vx:-1.6, t:'bat' }
-  ];
-  coins = [];
-  for(let i=0;i<6;i++) coins.push({ x:160+i * 130, y:240+Math.random() * 40, got:false });
-  save.hp = 3; updateHUD();
-  if(!running){ running=true; loop(); }
+function atk() {
+  if (enemyHp <= 0) return;
+  const damage = 6 + Math.floor(Math.random() * 7);
+  enemyHp = Math.max(0, enemyHp - damage);
+  if (enemyHp === 0) {
+    save.gold += 20; saveProgress();
+    document.getElementById('battleText').textContent = `怪物被击败了！获得 20 金币。`;
+    updateBattle();
+    setTimeout(() => { if (document.getElementById('battle').classList.contains('active')) go('map'); }, 900);
+  } else {
+    document.getElementById('battleText').textContent = `你造成 ${damage} 点伤害！怪物反击，你成功躲开了。`;
+    updateBattle();
+  }
 }
-
-function updateHUD(){
-  document.getElementById('hearts').textContent = '❤️'.repeat(save.hp) + '🖤'.repeat(3-save.hp);
-  document.getElementById('coinUI').textContent = save.coins;
+function drawChar() {
+  const c = document.getElementById('char').getContext('2d');
+  c.clearRect(0, 0, 160, 220);
+  c.fillStyle = '#e9b786'; c.fillRect(56, 68, 48, 48);
+  c.fillStyle = ['#fa0', '#08f', '#f3f'][save.equip.cloth]; c.fillRect(48, 116, 64, 66);
+  c.fillStyle = ['#34251e', '#a33', '#fc3'][save.equip.hair]; c.fillRect(54, 60, 52, 18);
+  c.fillStyle = '#222'; c.fillRect(66, 86, 5, 5); c.fillRect(89, 86, 5, 5);
+  c.fillStyle = '#493425'; c.fillRect(50, 180, 24, 28); c.fillRect(86, 180, 24, 28);
+  c.fillStyle = ['#ddd', '#fc3', '#f66'][save.equip.weapon]; c.fillRect(116, 125, 8, 48);
 }
-
-function loop(){
-  if(!document.getElementById('play').classList.contains('active')){ requestAnimationFrame(loop); return; }
-
-  // 输入
-  if(keys.l) p.vx = -3.2;
-  else if(keys.r) p.vx = 3.2;
-  else p.vx *= 0.82;
-
-  p.x += p.vx;
-  p.vy += 0.65;
-  p.y += p.vy;
-  if(p.y >= 300){ p.y=300; p.vy=0; p.onG=true; }
-  if(p.x<0) p.x=0;
-  if(p.x>cv.width-p.w) p.x=cv.width-p.w;
-
-  // 敌人
-  enemies.forEach(e=>{
-    e.x += e.vx;
-    if(e.x<40||e.x>cv.width-40) e.vx*=-1;
-    if(e.t==='bat') e.y = 120 + Math.sin(Date.now()/200) * 30;
-
-    if(Math.abs(e.x-p.x)<22 && Math.abs(e.y-p.y)<30){
-      save.hp--; updateHUD(); p.x=60; p.y=280;
-      if(save.hp<=0){ alert('游戏结束'); save.gold+=save.coins; go('map'); }
-    }
-  });
-
-  // 金币
-  coins.forEach(c=>{
-    if(!c.got && Math.abs(c.x-p.x)<26 && Math.abs(c.y-p.y)<34){
-      c.got=true; save.coins++; updateHUD();
-      if(save.coins>=6){ save.gold+=6; alert('通关青草平原！+6金币'); go('map'); }
-    }
-  });
-
-  // 画
-  ctx.fillStyle='#87ceeb'; ctx.fillRect(0,0,cv.width,120);
-  ctx.fillStyle='#bfe9ff'; ctx.fillRect(0,120,cv.width,140);
-  ctx.fillStyle='#5c4033'; ctx.fillRect(0,320,cv.width,40);
-  ctx.fillStyle='#2ecc71'; ctx.fillRect(0,312,cv.width,10);
-
-  coins.forEach(c=>{ if(!c.got){ ctx.fillStyle='gold'; ctx.beginPath(); ctx.arc(c.x,c.y,8,0,7); ctx.fill(); } });
-
-  enemies.forEach(e=>{
-    ctx.fillStyle = e.t==='slime' ? '#6f6' : '#a6f';
-    ctx.fillRect(e.x, e.y, e.w, e.h);
-  });
-
-  ctx.fillStyle = ['#fa0','#08f','#f3f'][save.equip.cloth];
-  ctx.fillRect(p.x, p.y, p.w, p.h);
-  ctx.fillStyle = ['#000','#a33','#fc3'][save.equip.hair];
-  ctx.fillRect(p.x, p.y-12, p.w, 12);
-
-  requestAnimationFrame(loop);
+function updateShop() {
+  document.getElementById('goldText').textContent = `金币：${save.gold}`;
+  updateGoldUI();
 }
+function change(type) {
+  if (save.gold < 3) { document.getElementById('goldText').textContent = '金币不足！闯关或开宝箱赚取金币。'; return; }
+  save.gold -= 3;
+  const key = ['cloth', 'hair', 'weapon'][type];
+  save.equip[key] = (save.equip[key] + 1) % 3;
+  saveProgress(); drawChar(); updateShop();
+}
+function updateGoldUI() {
+  const gold = document.getElementById('goldUI');
+  if (gold) gold.textContent = `金币 ${save.gold}`;
+}
+function startLevel() {
+  p = { x: 48, y: GROUND_Y - 36, w: 24, h: 36, vx: 0, vy: 0, onGround: true };
+  enemies = [
+    { x: 360, y: GROUND_Y - 24, w: 30, h: 24, min: 310, max: 470, vx: 1.3, alive: true },
+    { x: 900, y: GROUND_Y - 24, w: 30, h: 24, min: 850, max: 1010, vx: -1.5, alive: true },
+    { x: 1450, y: GROUND_Y - 24, w: 30, h: 24, min: 1400, max: 1570, vx: 1.6, alive: true }
+  ];
+  coins = [
+    [180, 278], [315, 222], [455, 278], [565, 182], [710, 278], [830, 232],
+    [1010, 278], [1120, 187], [1290, 278], [1415, 222], [1580, 278], [1710, 278]
+  ].map(([x, y]) => ({ x, y, got: false }));
+  cameraX = 0; runCoins = 0; invulnerable = 0; levelFinished = false;
+  document.getElementById('message').textContent = '收集金币并到达右侧终点！';
+  updateHUD();
+  gameActive = true;
+  lastFrame = 0;
+  requestAnimationFrame(gameLoop);
+}
+function updateHUD() {
+  document.getElementById('hearts').textContent = '❤️'.repeat(Math.max(0, p?.hp ?? 3)) + '🖤'.repeat(3 - Math.max(0, p?.hp ?? 3));
+  document.getElementById('coinUI').textContent = runCoins;
+  updateGoldUI();
+}
+function jump() {
+  if (!gameActive || !p || levelFinished || !document.getElementById('play').classList.contains('active')) return;
+  if (p.onGround) { p.vy = -11.5; p.onGround = false; }
+}
+function overlap(a, b) {
+  return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+}
+function damagePlayer(enemy) {
+  if (invulnerable > 0) return;
+  p.hp--;
+  invulnerable = 1.25;
+  p.vx = p.x < enemy.x ? -5 : 5;
+  p.vy = -5;
+  document.getElementById('message').textContent = p.hp > 0 ? '被史莱姆撞到了！小心躲避。' : '生命值耗尽，关卡失败。';
+  updateHUD();
+  if (p.hp <= 0) {
+    gameActive = false;
+    setTimeout(() => { if (document.getElementById('play').classList.contains('active')) go('map'); }, 1100);
+  }
+}
+function finishLevel() {
+  if (levelFinished) return;
+  levelFinished = true; gameActive = false;
+  const reward = runCoins + 5;
+  save.gold += reward; saveProgress(); updateHUD();
+  document.getElementById('message').textContent = `通关！收集 ${runCoins} 枚金币，额外奖励 5 金币。获得 ${reward} 金币！`;
+  document.getElementById('message').onclick = () => go('map');
+  setTimeout(() => { if (document.getElementById('play').classList.contains('active')) go('map'); }, 1800);
+}
+function gameLoop(timestamp) {
+  if (!gameActive) return;
+  const dt = Math.min((timestamp - (lastFrame || timestamp)) / 16.67, 2);
+  lastFrame = timestamp;
+  if (!document.getElementById('play').classList.contains('active')) { gameActive = false; return; }
+  if (invulnerable > 0) invulnerable = Math.max(0, invulnerable - dt / 60);
 
-/* ========== 控制 ========== */
-const hold = (id, k) => {
-  const el = document.getElementById(id);
-  el.addEventListener('touchstart', e=>{ e.preventDefault(); keys[k]=true; });
-  el.addEventListener('touchend', ()=> keys[k]=false);
-  el.addEventListener('mousedown', ()=> keys[k]=true);
-  el.addEventListener('mouseup', ()=> keys[k]=false);
-};
-hold('kL','l'); hold('kR','r');
-document.getElementById('kJ').addEventListener('touchstart', e=>{ e.preventDefault(); if(p.onG){ p.vy=-11; p.onG=false; } });
-document.getElementById('kJ').addEventListener('mousedown', ()=>{ if(p.onG){ p.vy=-11; p.onG=false; } });
+  const speed = 3.7;
+  if (keys.l && !keys.r) p.vx = -speed;
+  else if (keys.r && !keys.l) p.vx = speed;
+  else p.vx *= Math.pow(0.78, dt);
+  p.x = Math.max(0, Math.min(WORLD_WIDTH - p.w, p.x + p.vx * dt));
 
-/* 键盘 */
-addEventListener('keydown', e=>{ if(e.key==='ArrowLeft')keys.l=true; if(e.key==='ArrowRight')keys.r=true; if(e.key===' '&&p.onG){p.vy=-11;p.onG=false;} });
-addEventListener('keyup', e=>{ if(e.key==='ArrowLeft')keys.l=false; if(e.key==='ArrowRight')keys.r=false; });
+  const previousBottom = p.y + p.h;
+  p.vy = Math.min(12, p.vy + 0.62 * dt);
+  p.y += p.vy * dt;
+  p.onGround = false;
+  for (const platform of platforms) {
+    if (p.vy >= 0 && previousBottom <= platform.y + 2 && p.y + p.h >= platform.y && p.x + p.w > platform.x && p.x < platform.x + platform.w) {
+      p.y = platform.y - p.h; p.vy = 0; p.onGround = true;
+    }
+  }
+  if (p.y > cv.height + 100) { p.hp = 0; updateHUD(); gameActive = false; document.getElementById('message').textContent = '掉出平台，关卡失败。'; setTimeout(() => { if (document.getElementById('play').classList.contains('active')) go('map'); }, 1000); }
 
-/* PWA */
-if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
+  enemies.forEach(enemy => {
+    if (!enemy.alive) return;
+    enemy.x += enemy.vx * dt;
+    if (enemy.x < enemy.min || enemy.x > enemy.max) enemy.vx *= -1;
+    if (overlap(p, enemy)) {
+      if (p.vy > 1 && p.y + p.h - enemy.y < 17) { enemy.alive = false; p.vy = -8; }
+      else damagePlayer(enemy);
+    }
+  });
+  coins.forEach(coin => {
+    if (!coin.got && overlap(p, { x: coin.x - 9, y: coin.y - 9, w: 18, h: 18 })) {
+      coin.got = true; runCoins++; updateHUD();
+      document.getElementById('message').textContent = '金币 +1！继续前进，找到终点。';
+    }
+  });
+  cameraX = Math.max(0, Math.min(WORLD_WIDTH - cv.width, p.x - cv.width * 0.38));
+  drawGame();
+  if (p.x > WORLD_WIDTH - 100 && p.hp > 0) { finishLevel(); drawGame(); return; }
+  if (gameActive) requestAnimationFrame(gameLoop);
+}
+function drawGame() {
+  ctx.clearRect(0, 0, cv.width, cv.height);
+  const sky = ctx.createLinearGradient(0, 0, 0, cv.height);
+  sky.addColorStop(0, '#74c9f0'); sky.addColorStop(1, '#d4f4ff');
+  ctx.fillStyle = sky; ctx.fillRect(0, 0, cv.width, cv.height);
+  // Distant hills
+  ctx.fillStyle = '#9bd28b';
+  for (let i = 0; i < 7; i++) {
+    const x = i * 230 - (cameraX * 0.22 % 230);
+    ctx.beginPath(); ctx.ellipse(x + 80, 260, 145, 90, 0, Math.PI, 0); ctx.fill();
+  }
+  ctx.save(); ctx.translate(-cameraX, 0);
+  platforms.forEach((platform, index) => {
+    ctx.fillStyle = index === 0 ? '#75452e' : '#8b5a36'; ctx.fillRect(platform.x, platform.y, platform.w, platform.h);
+    ctx.fillStyle = '#39ad54'; ctx.fillRect(platform.x, platform.y, platform.w, 7);
+    ctx.fillStyle = '#a06a3f';
+    for (let x = platform.x + 14; x < platform.x + platform.w; x += 38) ctx.fillRect(x, platform.y + 13, 16, 5);
+  });
+  coins.forEach(coin => {
+    if (coin.got) return;
+    ctx.fillStyle = '#ffcb38'; ctx.beginPath(); ctx.ellipse(coin.x, coin.y, 8, 11, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#fff2a1'; ctx.fillRect(coin.x - 2, coin.y - 6, 3, 7);
+  });
+  enemies.forEach(enemy => {
+    if (!enemy.alive) return;
+    ctx.fillStyle = '#52d86a'; ctx.beginPath(); ctx.roundRect(enemy.x, enemy.y, enemy.w, enemy.h, [12, 12, 5, 5]); ctx.fill();
+    ctx.fillStyle = '#173b23'; ctx.fillRect(enemy.x + 7, enemy.y + 8, 4, 5); ctx.fillRect(enemy.x + 20, enemy.y + 8, 4, 5);
+  });
+  // Finish flag
+  ctx.fillStyle = '#45302a'; ctx.fillRect(WORLD_WIDTH - 95, 220, 6, 100);
+  ctx.fillStyle = '#ffdf46'; ctx.beginPath(); ctx.moveTo(WORLD_WIDTH - 89, 221); ctx.lineTo(WORLD_WIDTH - 42, 238); ctx.lineTo(WORLD_WIDTH - 89, 255); ctx.fill();
+  // Player
+  if (invulnerable <= 0 || Math.floor(performance.now() / 90) % 2 === 0) {
+    ctx.fillStyle = '#e9b786'; ctx.fillRect(p.x + 3, p.y, 18, 14);
+    ctx.fillStyle = ['#34251e', '#a33', '#fc3'][save.equip.hair]; ctx.fillRect(p.x + 2, p.y - 2, 20, 7);
+    ctx.fillStyle = ['#fa0', '#08f', '#f3f'][save.equip.cloth]; ctx.fillRect(p.x, p.y + 14, p.w, 18);
+    ctx.fillStyle = '#29364a'; ctx.fillRect(p.x + 2, p.y + 32, 8, 4); ctx.fillRect(p.x + 14, p.y + 32, 8, 4);
+    ctx.fillStyle = '#17202c'; ctx.fillRect(p.x + (p.vx < 0 ? 5 : 15), p.y + 5, 3, 3);
+  }
+  ctx.restore();
+}
+function bindHold(id, key) {
+  const button = document.getElementById(id);
+  button.addEventListener('pointerdown', event => { event.preventDefault(); button.setPointerCapture(event.pointerId); keys[key] = true; button.classList.add('pressed'); });
+  const release = event => { if (event) event.preventDefault(); keys[key] = false; button.classList.remove('pressed'); };
+  button.addEventListener('pointerup', release); button.addEventListener('pointercancel', release); button.addEventListener('lostpointercapture', release);
+}
+bindHold('kL', 'l'); bindHold('kR', 'r');
+const jumpButton = document.getElementById('kJ');
+jumpButton.addEventListener('pointerdown', event => { event.preventDefault(); jumpButton.classList.add('pressed'); jump(); });
+['pointerup', 'pointercancel', 'lostpointercapture'].forEach(type => jumpButton.addEventListener(type, () => jumpButton.classList.remove('pressed')));
+window.addEventListener('keydown', event => {
+  if (event.key === 'ArrowLeft' || event.key.toLowerCase() === 'a') { keys.l = true; event.preventDefault(); }
+  if (event.key === 'ArrowRight' || event.key.toLowerCase() === 'd') { keys.r = true; event.preventDefault(); }
+  if (event.key === ' ' || event.key === 'ArrowUp' || event.key.toLowerCase() === 'w') { jump(); event.preventDefault(); }
+});
+window.addEventListener('keyup', event => {
+  if (event.key === 'ArrowLeft' || event.key.toLowerCase() === 'a') keys.l = false;
+  if (event.key === 'ArrowRight' || event.key.toLowerCase() === 'd') keys.r = false;
+});
+window.addEventListener('blur', () => { keys.l = keys.r = false; });
+document.getElementById('message').addEventListener('click', () => { if (levelFinished) go('map'); });
+updateGoldUI();
+if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('sw.js').catch(() => {});
 </script>
 </body>
 </html>
