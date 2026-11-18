@@ -1,4 +1,4 @@
-const CACHE = 'pixel-adventure-v41';
+const CACHE = 'pixel-adventure-v42';
 const FILES = ['./', './index.html', './manifest.json', './customization.js', './inventory.js'];
 
 self.addEventListener('install', event => {
@@ -33,7 +33,7 @@ self.addEventListener('fetch', event => {
     }
     html = html.replace(/function drawChar\(\)\{[\s\S]*?\}\s*function updateShop\(/, 'function drawChar(){if(window.renderPixelShopAvatar)window.renderPixelShopAvatar()}\nfunction updateShop(');
 
-    // Route the actual in-game canvas draw through the side-profile renderer.
+    // Route the actual in-game canvas draw through the equipped sprite renderer.
     const playerBlock = /if\(invulnerable<=0\|\|Math\.floor\(performance\.now\(\)\/90\)%2===0\)\{ctx\.fillStyle='#e9b786';[\s\S]*?ctx\.fillRect\(p\.x\+\(p\.vx<0\?5:15\),p\.y\+5,3,3\)\}/;
     html = html.replace(playerBlock, `if(invulnerable<=0||Math.floor(performance.now()/90)%2===0){if(window.drawEquippedPixelDetails)window.drawEquippedPixelDetails(ctx,p.x,p.y,save,p.vx,performance.now());else{ctx.fillStyle='#e9b786';ctx.fillRect(p.x+3,p.y,18,14);ctx.fillStyle=['#34251e','#a33','#fc3'][save.equip.hair];ctx.fillRect(p.x+2,p.y-2,20,7);ctx.fillStyle=['#fa0','#08f','#f3f'][save.equip.cloth];ctx.fillRect(p.x,p.y+14,p.w,18);ctx.fillStyle='#29364a';ctx.fillRect(p.x+2,p.y+32,8,4);ctx.fillRect(p.x+14,p.y+32,8,4)}}`);
 
@@ -60,46 +60,46 @@ self.addEventListener('fetch', event => {
       drawEquipped(sampleCtx, 0, 2, save);
       const skin = pixelColor(4, 12, '#e9b786');
       const shirt = pixelColor(12, 21, '#fa0');
+
+      // Keep the character front-facing while standing still.
+      if (!walking) {
+        drawEquipped(ctx, x, y, save);
+        ctx.save();
+        ctx.fillStyle = '#704832';
+        ctx.fillRect(x + 1, y + 16, 1, 7);
+        ctx.fillRect(x + 22, y + 16, 1, 7);
+        ctx.fillStyle = shirt;
+        ctx.fillRect(x + 2, y + 16, 3, 7);
+        ctx.fillRect(x + 19, y + 16, 3, 7);
+        ctx.fillStyle = skin;
+        ctx.fillRect(x + 2, y + 23, 3, 3);
+        ctx.fillRect(x + 19, y + 23, 3, 3);
+        ctx.restore();
+        return;
+      }
+
       const hair = pixelColor(8, 3, '#34251e');
       const pants = pixelColor(5, 30, '#29364a');
       const shoe = pixelColor(5, 35, '#493425');
-      const phase = walking ? Math.floor(timestamp / 110) % 2 : 0;
+      const phase = Math.floor(timestamp / 110) % 2;
       const facingLeft = vx < 0;
-
       ctx.save();
       ctx.translate(x + (facingLeft ? 24 : 0), y);
       ctx.scale(facingLeft ? -1 : 1, 1);
       const part = (localX, localY, width, height) => ctx.fillRect(localX, localY, width, height);
 
-      // Side-profile face is drawn in both idle and walking poses. Keep the
-      // forehead, eye, protruding nose, mouth, cheek and chin unobstructed.
+      // Pixel-art side profile with a clear forehead, nose, cheek, and chin.
       ctx.fillStyle = skin;
-      part(7, 3, 10, 3);
-      part(6, 6, 12, 4);
-      part(8, 10, 9, 3);
-      part(17, 7, 3, 3);
-      part(10, 12, 7, 1);
+      part(8, 2, 9, 3); part(7, 5, 11, 5); part(8, 10, 9, 3);
+      part(17, 7, 3, 3); part(10, 12, 7, 1); part(6, 6, 2, 3);
       ctx.fillStyle = hair;
-      part(7, 1, 11, 2);
-      part(5, 3, 5, 4);
-      part(5, 6, 3, 7);
-      part(13, 3, 5, 2);
-      // A dark wide-brim adventurer hat, matching the reference, sits above
-      // the eye line instead of covering the face.
-      ctx.fillStyle = '#211f23';
-      part(5, -4, 13, 4);
-      part(2, 0, 20, 2);
-      part(0, 2, 24, 2);
-      // Restore clearly visible facial pixels on top of the hairline.
-      ctx.fillStyle = skin;
-      part(16, 5, 2, 2);
-      part(18, 7, 3, 3);
-      part(10, 10, 7, 2);
-      ctx.fillStyle = '#211f23';
-      part(15, 6, 2, 2);
-      ctx.fillStyle = '#75483d';
-      part(17, 11, 2, 1);
+      part(8, 0, 8, 2); part(6, 2, 10, 2); part(6, 4, 4, 3);
+      part(6, 6, 3, 6); part(13, 2, 5, 2);
+      ctx.fillStyle = '#34251e'; part(15, 5, 2, 1);
+      ctx.fillStyle = '#222'; part(15, 6, 2, 2);
+      ctx.fillStyle = '#9b5b4b'; part(17, 11, 2, 1);
 
+      // Side-facing walking silhouette keeps its own subtle arm/leg cycle.
       ctx.fillStyle = shirt;
       part(8, 13, 10, 13);
       part(7, phase ? 18 : 14, 3, 7);
