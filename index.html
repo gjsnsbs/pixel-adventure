@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>像素冒险 V25 - 横版</title>
+<style>
+  body{margin:0;background:#111;color:#fff;font-family:sans-serif;touch-action:manipulation;overflow:hidden;}
+  .screen{display:none;flex-direction:column;height:100vh;padding:10px;box-sizing:border-box;}
+  .screen.active{display:flex;}
+  h1,h2{margin:5px 0;}
+  .btn{background:#333;padding:12px 20px;margin:5px;border-radius:6px;text-align:center;cursor:pointer;font-size:18px;user-select:none;}
+  .row{display:flex;gap:8px;margin:8px 0;}
+  #gameCanvas{background:#87CEEB;width:100%;height:50vh;border:2px solid #444;image-rendering:pixelated;}
+  .ui-bar{display:flex;justify-content:space-between;background:#222;padding:10px;margin-bottom:5px;font-size:16px;align-items:center;}
+  .controls{display:flex;justify-content:space-between;margin-top:10px;}
+  .ctrl-btn{width:70px;height:70px;background:#222;border:2px solid #555;display:flex;align-items:center;justify-content:center;font-size:30px;user-select:none;}
+  .ctrl-jump{width:90px;height:90px;font-size:24px;}
+  .title-box{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;}
+  .title-box h1{font-size:40px;color:gold;}
+  .map-grid{display:grid;grid-template-columns:repeat(4,60px);gap:5px;}
+  .cell{width:60px;height:60px;background:#222;text-align:center;line-height:60px;font-size:30px;}
+</style>
+</head>
+<body>
+
+<!-- 标题 -->
+<div id="title" class="screen active">
+  <div class="title-box">
+    <h1>像素冒险</h1>
+    <div class="btn" onclick="show('map')">开始游戏</div>
+    <div class="btn" onclick="show('shop')">商店换装</div>
+  </div>
+</div>
+
+<!-- 地图(选关/遇敌) -->
+<div id="map" class="screen">
+  <h2>地图 (点击格子探索)</h2>
+  <div class="map-grid" id="mapGrid"></div>
+  <div class="btn" onclick="show('title')">返回标题</div>
+</div>
+
+<!-- 商店 -->
+<div id="shop" class="screen">
+  <h2>商店换装</h2>
+  <canvas id="char" width="160" height="220" style="background:#000;"></canvas>
+  <div class="row">
+    <div class="btn" onclick="change(0)">衣服</div>
+    <div class="btn" onclick="change(1)">头发</div>
+    <div class="btn" onclick="change(2)">武器</div>
+  </div>
+  <div class="btn" onclick="show('title')">返回</div>
+  <div id="goldText"></div>
+</div>
+
+<!-- 战斗 -->
+<div id="battle" class="screen">
+  <h2>战斗！</h2>
+  <div id="enemyHp" style="font-size:24px;">HP 30 / 30</div>
+  <div class="row">
+    <div class="btn" onclick="atk()">攻击</div>
+    <div class="btn" onclick="show('map')">逃跑</div>
+  </div>
+</div>
+
+<!-- 横版游戏 -->
+<div id="play" class="screen">
+  <div class="ui-bar">
+    <div>❤️❤️❤️</div>
+    <div>关卡 <span style="color:#87CEEB;">青草平原</span></div>
+    <div>金币 <span id="coinUI">0</span></div>
+    <div>储蓄 <span id="goldUI">4</span></div>
+  </div>
+  <div style="background:#222;padding:5px 10px;font-size:14px;">最佳 77 | 横屏更爽，点 [全屏] 横屏</div>
+  <canvas id="gameCanvas" width="800" height="300"></canvas>
+  <div class="controls">
+    <div style="display:flex;gap:10px;">
+      <div class="ctrl-btn" id="btnLeft">◀</div>
+      <div class="ctrl-btn" id="btnRight">▶</div>
+    </div>
+    <div class="ctrl-btn ctrl-jump" id="btnJump">跳</div>
+  </div>
+</div>
+
+<script>
+  let save={gold:4, equip:{cloth:0,hair:0,weapon:0}, coins:0};
+  let enemyHp=30;
+
+  function show(id){
+    document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+    if(id==='map')renderMap();
+    if(id==='shop'){drawChar();document.getElementById('goldText').textContent='金币: '+save.gold;document.getElementById('goldUI').textContent=save.gold;}
+    if(id==='play'){save.coins=0;document.getElementById('coinUI').textContent=0;initGame();}
+  }
+
+  // 地图
+  function renderMap(){
+    const mg=document.getElementById('mapGrid');mg.innerHTML='';
+    ['🌲','🏔','🕳','👹','💎','🏠','⚔','❓'].forEach(t=>{
+      const c=document.createElement('div');c.className='cell';c.textContent=t;
+      c.onclick=()=>{
+        if(t==='👹'||t==='⚔'){enemyHp=30;document.getElementById('enemyHp').textContent='HP 30 / 30';show('battle');}
+        else if(t==='💎'){save.gold+=5;show('map');}
+        else {show('play');}
+      };
+      mg.appendChild(c);
+    });
+  }
+
+  // 战斗
+  function atk(){
+    enemyHp-=Math.ceil(Math.random() * 8+4);
+    if(enemyHp<=0){save.gold+=20;enemyHp=30;document.getElementById('enemyHp').textContent='HP 30 / 30';alert('胜利！+20金币');show('map');}
+    else{document.getElementById('enemyHp').textContent='HP '+enemyHp+' / 30';}
+  }
+
+  // 商店
+  function drawChar(){
+    const c=document.getElementById('char').getContext('2d');
+    c.clearRect(0,0,160,220);
+    c.fillStyle=['#fa0','#08f'][save.equip.cloth];c.fillRect(56,110,48,60);
+    c.fillStyle=['#000','#f00'][save.equip.hair];c.fillRect(56,100,48,15);
+  }
+  function change(t){save.equip.cloth=(t===0?save.equip.cloth+1:save.equip.cloth)%2;save.equip.hair=(t===1?save.equip.hair+1:save.equip.hair)%2;save.equip.weapon=(t===2?save.equip.weapon+1:save.equip.weapon)%2;drawChar();}
+
+  // 横版游戏逻辑
+  const cv=document.getElementById('gameCanvas'), ctx=cv.getContext('2d');
+  let p={x:50,y:200,vx:0,vy:0,w:20,h:30,onG:true}, keys={}, coins=[], clouds=[], grass=[];
+  
+  function initGame(){
+    coins=[];grass=[];clouds=[];
+    for(let i=0;i<3;i++)clouds.push({x:200*i+100,y:50+Math.random() * 30,w:40+Math.random() * 20});
+    for(let i=0;i<5;i++)coins.push({x:150+i * 120,y:180+Math.random() * 40,t:0});
+    p={x:50,y:200,vx:0,vy:0,w:20,h:30,onG:true};
+  }
+
+  function loop(){
+    if(!document.getElementById('play').classList.contains('active')){requestAnimationFrame(loop);return;}
+    // 移动
+    if(keys.left)p.vx=-3;else if(keys.right)p.vx=3;else p.vx*=0.8;
+    p.x+=p.vx;
+    // 重力
+    p.vy+=0.6;p.y+=p.vy;
+    if(p.y>=200){p.y=200;p.vy=0;p.onG=true;}
+    // 边界
+    if(p.x<0)p.x=0;if(p.x>cv.width-20)p.x=cv.width-20;
+
+    // 画
+    ctx.clearRect(0,0,cv.width,cv.height);
+    // 天空分层
+    ctx.fillStyle='#87CEEB';ctx.fillRect(0,0,cv.width,60);
+    ctx.fillStyle='#9FD4F0';ctx.fillRect(0,60,cv.width,60);
+    ctx.fillStyle='#BFE9FF';ctx.fillRect(0,120,cv.width,80);
+    // 云
+    ctx.fillStyle='#fff';clouds.forEach(c=>{ctx.fillRect(c.x, c.y, c.w, 15);ctx.fillRect(c.x+5,c.y+10,c.w-10,10);c.x-=0.5;if(c.x<-50)c.x=cv.width+50;});
+    // 草地
+    ctx.fillStyle='#5C4033';ctx.fillRect(0,230,cv.width,70);
+    ctx.fillStyle='#2ECC71';ctx.fillRect(0,220,cv.width,15);
+    // 金币
+    coins.forEach(c=>{
+      if(c.t===0){
+        ctx.fillStyle='gold';ctx.beginPath();ctx.arc(c.x, c.y, 8, 0, Math.PI * 2);ctx.fill();
+        if(Math.abs(p.x-c.x)<25 && Math.abs(p.y-c.y)<30){c.t=1;save.coins++;document.getElementById('coinUI').textContent=save.coins;}
+      }
+    });
+    // 角色
+    ctx.fillStyle=['#fa0','#08f'][save.equip.cloth];ctx.fillRect(p.x,p.y,p.w,p.h);
+    ctx.fillStyle=['#000','#f00'][save.equip.hair];ctx.fillRect(p.x,p.y-10,p.w,10);
+    
+    requestAnimationFrame(loop);
+  }
+
+  // 触摸控制
+  const tl=document.getElementById('btnLeft'), tr=document.getElementById('btnRight'), tj=document.getElementById('btnJump');
+  tl.addEventListener('touchstart',e=>{e.preventDefault();keys.left=true;});tl.addEventListener('touchend',()=>keys.left=false);
+  tr.addEventListener('touchstart',e=>{e.preventDefault();keys.right=true;});tr.addEventListener('touchend',()=>keys.right=false);
+  tj.addEventListener('touchstart',e=>{e.preventDefault();if(p.onG){p.vy=-10;p.onG=false;}});
+  
+  // 点击回地图（测试用，吃到5币回地图）
+  setInterval(()=>{if(save.coins>=5){save.gold+=save.coins;show('map');}},500);
+
+  if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').catch(()=>{});}
+  loop();
+</script>
+</body>
+</html>
